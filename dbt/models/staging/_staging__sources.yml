@@ -1,0 +1,45 @@
+version: 2
+
+sources:
+  - name: raw
+    database: "{{ env_var('GCP_PROJECT_ID') }}"
+    schema: raw_nl_transport
+    tables:
+      - name: ns_disruptions
+        description: "Raw NS disruption events"
+        loaded_at_field: _PARTITIONTIME
+        freshness:
+          warn_after: {count: 36, period: hour}
+          error_after: {count: 48, period: hour}
+        columns:
+          - name: disruption_id
+            tests:
+              - not_null
+          - name: service_date
+            tests:
+              - not_null
+
+      - name: ns_departures
+        description: "Raw NS departure records with delay"
+        loaded_at_field: _PARTITIONTIME
+        freshness:
+          warn_after: {count: 36, period: hour}
+          error_after: {count: 48, period: hour}
+        columns:
+          - name: service_date
+            tests:
+              - not_null
+
+      - name: ndw_traffic_flow
+        description: "Raw NDW 15-minute traffic observations"
+        loaded_at_field: _PARTITIONTIME
+        freshness:
+          warn_after: {count: 36, period: hour}
+          error_after: {count: 48, period: hour}
+        columns:
+          - name: location_id
+            tests:
+              - not_null
+          - name: service_date
+            tests:
+              - not_null
