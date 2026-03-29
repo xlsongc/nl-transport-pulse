@@ -1,0 +1,37 @@
+version: 2
+
+models:
+  - name: stg_ns_disruptions
+    description: "Cleaned NS disruption events with typed columns"
+    columns:
+      - name: disruption_id
+        description: "Unique disruption identifier from NS API"
+        tests:
+          - not_null
+      - name: service_date
+        description: "The date this disruption was active"
+        tests:
+          - not_null
+
+  - name: stg_ns_departures
+    description: "Cleaned NS departure records with computed delay"
+    columns:
+      - name: departure_id
+        description: "Composite key: station_code + planned_departure_ts"
+        tests:
+          - not_null
+          - unique
+      - name: delay_minutes
+        description: "Delay in minutes (actual - planned). 0 means on-time."
+
+  - name: stg_ndw_traffic_flow
+    description: "Cleaned NDW 15-minute traffic observations"
+    columns:
+      - name: location_id
+        description: "NDW measurement point identifier"
+        tests:
+          - not_null
+      - name: measurement_ts
+        description: "Start of the 15-minute measurement interval"
+        tests:
+          - not_null
