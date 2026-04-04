@@ -13,7 +13,8 @@ def upload_json_to_gcs(
     client = storage.Client()
     bucket = client.bucket(bucket_name)
     blob = bucket.blob(blob_path)
-    blob.upload_from_string(json.dumps(data), content_type="application/json")
+    ndjson = "\n".join(json.dumps(row) for row in data)
+    blob.upload_from_string(ndjson, content_type="application/json")
     return f"gs://{bucket_name}/{blob_path}"
 
 

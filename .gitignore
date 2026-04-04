@@ -38,3 +38,5 @@ dbt/logs/
 # OS
 .DS_Store
 Thumbs.db
+
+temp_data/

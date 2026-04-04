@@ -31,6 +31,7 @@ def load_json_to_bq(
     # Step 2: Load from GCS
     job_config = bigquery.LoadJobConfig(
         source_format=bigquery.SourceFormat.NEWLINE_DELIMITED_JSON,
+        autodetect=True,
         write_disposition=bigquery.WriteDisposition.WRITE_APPEND,
         time_partitioning=bigquery.TimePartitioning(
             type_=bigquery.TimePartitioningType.DAY,

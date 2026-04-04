@@ -16,7 +16,9 @@ cleaned as (
         cast(train_category as string) as train_category,
         concat(
             cast(station_code as string), '_',
-            cast(planned_departure_ts as string)
+            cast(service_date as string), '_',
+            cast(planned_departure_ts as string), '_',
+            cast(direction as string)
         ) as departure_id
     from source
 )

@@ -23,6 +23,43 @@ SAMPLE_DISRUPTIONS_RESPONSE = {
 }
 
 
+SAMPLE_DISRUPTIONS_LIVE_SHAPE_RESPONSE = {
+    "payload": [
+        {
+            "id": "6063711",
+            "title": "Dordrecht - Roosendaal.",
+            "isActive": True,
+            "start": "2026-03-30T18:43:00+0200",
+            "end": "2026-03-30T23:59:00+0200",
+            "timespans": [
+                {
+                    "cause": {"label": "defect spoor"},
+                    "start": "2026-03-30T18:43:00+0200",
+                    "end": "2026-03-30T23:59:00+0200",
+                }
+            ],
+            "publicationSections": [
+                {
+                    "section": {
+                        "stations": [
+                            {"stationCode": "DD"},
+                            {"stationCode": "RSD"},
+                        ]
+                    },
+                    "consequence": {
+                        "section": {
+                            "stations": [
+                                {"stationCode": "LAGEV"},
+                            ]
+                        }
+                    },
+                }
+            ],
+        }
+    ]
+}
+
+
 def test_extract_disruptions_parses_response():
     """extract_disruptions should return flat list of disruption records."""
     mock_response = MagicMock()
@@ -46,6 +83,28 @@ def test_extract_disruptions_parses_response():
         assert "ASD" in row["affected_station_codes"]
         assert row["cause"] == "seinstoring"
         assert row["duration_minutes"] > 0
+
+
+def test_extract_disruptions_supports_live_publication_sections_shape():
+    """Live NS disruptions place affected stations under publicationSections."""
+    mock_response = MagicMock()
+    mock_response.status_code = 200
+    mock_response.json.return_value = SAMPLE_DISRUPTIONS_LIVE_SHAPE_RESPONSE
+
+    with patch("scripts.ingest_ns.requests.get", return_value=mock_response):
+        from scripts.ingest_ns import extract_disruptions
+
+        result = extract_disruptions(
+            api_key="test-key",
+            base_url="https://test.api.ns.nl",
+            service_date="2026-03-30",
+        )
+
+        assert len(result) == 1
+        row = result[0]
+        assert row["cause"] == "defect spoor"
+        assert row["affected_station_codes"] == ["DD", "RSD", "LAGEV"]
+        assert row["stations_affected_count"] == 3
 
 
 SAMPLE_DEPARTURES_RESPONSE = {

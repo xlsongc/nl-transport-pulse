@@ -5,6 +5,7 @@ service_date = execution_date (= yesterday in Airflow convention).
 
 Pipeline: NS API → JSON → GCS → BigQuery (partition-scoped overwrite).
 """
+import time
 from datetime import datetime, timedelta
 
 from airflow import DAG
@@ -27,8 +28,8 @@ default_args = {
 # Stations to pull departures for — MVP corridors
 MVP_STATIONS = [
     "ASD", "RTD", "UT", "GVC", "EHV",
-    "AH", "SDM", "DT", "LD", "AMS",
-    "BRN", "HTN", "DRN", "EDE",
+    "AH", "SDM", "DT", "LEDN", "ASA",
+    "BRN", "HTN", "DB", "ED",
 ]
 
 
@@ -66,6 +67,7 @@ def _extract_and_upload_departures(**context):
     for station_code in MVP_STATIONS:
         departures = extract_departures(api_key, base_url, station_code, service_date)
         all_departures.extend(departures)
+        time.sleep(1)  # rate-limit protection
 
     if all_departures:
         gcs_uri = upload_json_to_gcs(
@@ -125,7 +127,7 @@ with DAG(
     schedule_interval="0 6 * * *",
     start_date=datetime(2026, 3, 1),
     catchup=True,
-    max_active_runs=3,
+    max_active_runs=1,
     tags=["ingestion", "ns"],
 ) as dag:
     extract_disruptions_task = PythonOperator(
