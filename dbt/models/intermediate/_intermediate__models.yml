@@ -1,0 +1,26 @@
+version: 2
+
+models:
+  - name: int_train_delays_daily
+    description: "Daily train delay statistics per station, aggregated from departures"
+    columns:
+      - name: station_code
+        tests:
+          - not_null
+      - name: service_date
+        tests:
+          - not_null
+      - name: pct_on_time
+        description: "Percentage of departures with delay <= 1 minute"
+
+  - name: int_ndw_traffic_daily
+    description: "Daily traffic statistics per NDW measurement point, aggregated from 15-min readings"
+    columns:
+      - name: location_id
+        tests:
+          - not_null
+      - name: service_date
+        tests:
+          - not_null
+      - name: congestion_minutes
+        description: "Minutes where avg speed was below 50% of free-flow speed"
