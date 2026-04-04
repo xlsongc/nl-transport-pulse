@@ -1,5 +1,3 @@
-version: '3.8'
-
 x-airflow-common: &airflow-common
   build:
     context: .
@@ -46,17 +44,11 @@ services:
   airflow-init:
     <<: *airflow-common
     entrypoint: /bin/bash
-    command: >
-      -c "
-      airflow db init &&
-      airflow users create
-        --username airflow
-        --password airflow
-        --firstname Admin
-        --lastname User
-        --role Admin
-        --email admin@example.com
-      "
+    command:
+      - -c
+      - |
+        airflow db init &&
+        airflow users create --username airflow --password airflow --firstname Admin --lastname User --role Admin --email admin@example.com
     restart: "no"
 
   airflow-webserver:

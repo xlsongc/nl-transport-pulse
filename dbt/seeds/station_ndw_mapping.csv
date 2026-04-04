@@ -11,15 +11,15 @@ SDM,Schiedam Centrum,GRT04_MORO_6214,Matlingeweg kr Linschotenstraat - A20 toeri
 DT,Delft,RDH06_4.2N,Beatrixlaan (Westlandseweg Delft-A4 Rijswijk),52.007298,4.3441215,0.86
 DT,Delft,RDH06_17.6N,Vrijebanselaan Delft (Westvest-A13 Delft Noord),52.01541,4.3506794,1.05
 DT,Delft,RDH06_17.1W,R. de Graafweg-Zuidhoornseweg (Beatrixlaan Delft-A4 Den Hoorn),51.999916,4.3438244,1.16
-LD,Leiden Centraal,RWS04_ZWN_dBD95_r1_A44_DH_Centrum,dBD95 tot Den Haag-Centrum via A44,52.155,4.471926,1.42
-LD,Leiden Centraal,PZH04_SYNCH_1433,A44d van N206 tot hmp 173.0,52.17055,4.4546723,1.9
-LD,Leiden Centraal,RWS08_44_HRL_018.0_1,A44_HRL_van_18000_tot_17500,52.168983,4.4540043,1.91
+LEDN,Leiden Centraal,RWS04_ZWN_dBD95_r1_A44_DH_Centrum,dBD95 tot Den Haag-Centrum via A44,52.155,4.471926,1.42
+LEDN,Leiden Centraal,PZH04_SYNCH_1433,A44d van N206 tot hmp 173.0,52.17055,4.4546723,1.9
+LEDN,Leiden Centraal,RWS08_44_HRL_018.0_1,A44_HRL_van_18000_tot_17500,52.168983,4.4540043,1.91
 UT,Utrecht Centraal,RWS04_MN_GD_A2_M_57.8_A2_M_61.7_P,RWS04_MN_GD_A2_M_57.8_A2_M_61.7_P,52.08368,5.075387,2.45
 UT,Utrecht Centraal,ABM01_A12_PC3522_LiGalecopper,A12_tussen_H Utrecht 3522_en_A12 PRL Galecopper,52.06723,5.1132355,2.46
 UT,Utrecht Centraal,RWS09_401,A28_Waterlinie_A12PRB,52.088566,5.1477194,2.57
-AMS,Amsterdam Amstel,GAD03_307-A10,borchlandweg-A10,52.33278,4.923525,1.56
-AMS,Amsterdam Amstel,ABM01_ASL_010HRR11_AF,A10 HRR Afrit S111,52.333984,4.9297824,1.6
-AMS,Amsterdam Amstel,ABM01_ASL_010HRR11_OP,A10 HRR Oprit S111,52.331944,4.927005,1.72
+ASA,Amsterdam Amstel,GAD03_307-A10,borchlandweg-A10,52.33278,4.923525,1.56
+ASA,Amsterdam Amstel,ABM01_ASL_010HRR11_AF,A10 HRR Afrit S111,52.333984,4.9297824,1.6
+ASA,Amsterdam Amstel,ABM01_ASL_010HRR11_OP,A10 HRR Oprit S111,52.331944,4.927005,1.72
 BRN,Breukelen,PUT03_PUT_N401.15_Re,PUT_N401.15_Re van westelijke toe-/afrit A2 naar oostelijke toe-/afrit A2,52.171997,4.988087,0.98
 BRN,Breukelen,PUT03_PUT_N401.15_Li,PUT_N401.15_Li van oostelijke toe-/afrit A2 naar westelijke toe-/afrit A2,52.172062,4.98791,1.0
 BRN,Breukelen,RWS09_A2_Maarssen_Breukelen,A2 Maarssen Breukelen,52.171783,4.9874606,1.03
@@ -35,9 +35,9 @@ HTN,s-Hertogenbosch,RWS10_A27HH_A65L_1,A65 Links Vught - De Baars,51.669907,5.31
 AH,Arnhem Centraal,PGL03_ARN_R_Apeldoornseweg_1_Ri1,Arnhem route 11 A12 - Willemsplein,51.989456,5.907841,0.82
 AH,Arnhem Centraal,PGL03_ARN_R_IJssellaan_1_Ri1,Arnhem route 7 A12 - Airborneplein,51.97835,5.9180217,1.5
 AH,Arnhem Centraal,RWS09_RWS100978_S4groene_route,RWS100978_s4 groene route- A28 Links knp Rijnsweerd verbindingsboog u_groene route,52.018265,5.908367,3.79
-DRN,Driebergen-Zeist,RWS09_352447,A12luve driebergen-veenendaal N225N416,52.050396,5.2870517,0.63
-DRN,Driebergen-Zeist,RWS01_MONIBAS_0121hrl0733ra1,0121hrl0733ra1,52.06523,5.29303,1.43
-DRN,Driebergen-Zeist,PUT03_PUT_N229.05_Re,PUT_N229.05_Re van zuidelijke toe-/afrit A12 naar Singel,52.054047,5.2256937,3.79
-EDE,Ede-Wageningen,PGL03_FV_B2a,FHV A12 uitgaand,52.0267,5.6471577,1.8
-EDE,Ede-Wageningen,PGL03_Ede_6b,ZGV-A50 via Selterskampweg en N782,52.023796,5.6475945,2.12
-EDE,Ede-Wageningen,PGL03_FV_A13a,Ede-Veenendaal via A30 en A12,52.04538,5.6174545,2.24
+DB,Driebergen-Zeist,RWS09_352447,A12luve driebergen-veenendaal N225N416,52.050396,5.2870517,0.63
+DB,Driebergen-Zeist,RWS01_MONIBAS_0121hrl0733ra1,0121hrl0733ra1,52.06523,5.29303,1.43
+DB,Driebergen-Zeist,PUT03_PUT_N229.05_Re,PUT_N229.05_Re van zuidelijke toe-/afrit A12 naar Singel,52.054047,5.2256937,3.79
+ED,Ede-Wageningen,PGL03_FV_B2a,FHV A12 uitgaand,52.0267,5.6471577,1.8
+ED,Ede-Wageningen,PGL03_Ede_6b,ZGV-A50 via Selterskampweg en N782,52.023796,5.6475945,2.12
+ED,Ede-Wageningen,PGL03_FV_A13a,Ede-Veenendaal via A30 en A12,52.04538,5.6174545,2.24

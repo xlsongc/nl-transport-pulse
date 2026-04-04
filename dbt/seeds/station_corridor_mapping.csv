@@ -3,10 +3,10 @@ ASD,Amsterdam Centraal,1,Amsterdam-Rotterdam,52.3791,4.9003
 RTD,Rotterdam Centraal,1,Amsterdam-Rotterdam,51.9244,4.4690
 SDM,Schiedam Centrum,1,Amsterdam-Rotterdam,51.9217,4.4089
 DT,Delft,1,Amsterdam-Rotterdam,52.0067,4.3567
-LD,Leiden Centraal,1,Amsterdam-Rotterdam,52.1663,4.4817
+LEDN,Leiden Centraal,1,Amsterdam-Rotterdam,52.1663,4.4817
 ASD,Amsterdam Centraal,2,Amsterdam-Utrecht,52.3791,4.9003
 UT,Utrecht Centraal,2,Amsterdam-Utrecht,52.0893,5.1101
-AMS,Amsterdam Amstel,2,Amsterdam-Utrecht,52.3464,4.9178
+ASA,Amsterdam Amstel,2,Amsterdam-Utrecht,52.3464,4.9178
 BRN,Breukelen,2,Amsterdam-Utrecht,52.1717,5.0025
 GVC,Den Haag Centraal,3,Den Haag-Rotterdam,52.0808,4.3248
 RTD,Rotterdam Centraal,3,Den Haag-Rotterdam,51.9244,4.4690
@@ -15,5 +15,5 @@ EHV,Eindhoven Centraal,4,Utrecht-Eindhoven,51.4433,5.4817
 HTN,s-Hertogenbosch,4,Utrecht-Eindhoven,51.6908,5.2936
 UT,Utrecht Centraal,5,Utrecht-Arnhem,52.0893,5.1101
 AH,Arnhem Centraal,5,Utrecht-Arnhem,51.9847,5.8987
-DRN,Driebergen-Zeist,5,Utrecht-Arnhem,52.0547,5.2811
-EDE,Ede-Wageningen,5,Utrecht-Arnhem,52.0428,5.6500
+DB,Driebergen-Zeist,5,Utrecht-Arnhem,52.0547,5.2811
+ED,Ede-Wageningen,5,Utrecht-Arnhem,52.0428,5.6500

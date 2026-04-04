@@ -1,8 +1,9 @@
 """NS API extraction logic for disruptions and departures."""
 from __future__ import annotations
 
-import requests
 from datetime import datetime
+
+import requests
 
 
 def extract_disruptions(
@@ -19,7 +20,9 @@ def extract_disruptions(
     response = requests.get(url, headers=headers, params=params)
     response.raise_for_status()
 
-    raw_disruptions = response.json().get("payload", [])
+    data = response.json()
+    # v3 returns a list directly; v2 wrapped in {"payload": [...]}
+    raw_disruptions = data if isinstance(data, list) else data.get("payload", [])
     records = []
 
     for d in raw_disruptions:
@@ -33,16 +36,11 @@ def extract_disruptions(
         if start_dt and end_dt:
             duration_minutes = (end_dt - start_dt).total_seconds() / 60.0
 
-        # Flatten affected stations from all timespans
-        affected_stations = []
+        affected_stations = _collect_station_codes(d)
         cause = ""
         for ts in d.get("timespans", []):
             if not cause and ts.get("cause", {}).get("label"):
                 cause = ts["cause"]["label"]
-            for st in ts.get("stations", []):
-                code = st.get("stationCode", "")
-                if code and code not in affected_stations:
-                    affected_stations.append(code)
 
         records.append(
             {
@@ -115,3 +113,25 @@ def _parse_ns_datetime(dt_str: str) -> datetime:
     import re
     normalised = re.sub(r"([+-])(\d{2})(\d{2})$", r"\1\2:\3", dt_str)
     return datetime.fromisoformat(normalised)
+
+
+def _collect_station_codes(value: object) -> list[str]:
+    """Recursively collect unique stationCode values from a disruption payload."""
+    collected: list[str] = []
+    seen: set[str] = set()
+
+    def _walk(node: object) -> None:
+        if isinstance(node, dict):
+            station_code = node.get("stationCode")
+            if isinstance(station_code, str) and station_code and station_code not in seen:
+                seen.add(station_code)
+                collected.append(station_code)
+
+            for child in node.values():
+                _walk(child)
+        elif isinstance(node, list):
+            for child in node:
+                _walk(child)
+
+    _walk(value)
+    return collected
