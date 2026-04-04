@@ -1,0 +1,57 @@
+version: 2
+
+models:
+  - name: dim_stations
+    description: "Station dimension with corridor assignment and coordinates"
+    columns:
+      - name: station_code
+        tests:
+          - not_null
+
+  - name: dim_ndw_locations
+    description: "NDW measurement point dimension with corridor mapping"
+    columns:
+      - name: location_id
+        tests:
+          - not_null
+          - unique
+
+  - name: dim_date
+    description: "Date dimension with Dutch holidays and season"
+    columns:
+      - name: date
+        tests:
+          - not_null
+          - unique
+
+  - name: fct_train_performance
+    description: "Daily train reliability metrics per station. Incremental."
+    columns:
+      - name: station_code
+        tests:
+          - not_null
+      - name: service_date
+        tests:
+          - not_null
+      - name: pct_on_time
+        description: "Percentage of departures with delay <= 1 minute (0-100)"
+
+  - name: fct_road_traffic
+    description: "Daily road traffic metrics per NDW measurement point"
+    columns:
+      - name: location_id
+        tests:
+          - not_null
+      - name: service_date
+        tests:
+          - not_null
+
+  - name: dm_multimodal_daily
+    description: "Data mart: train + road metrics by corridor and date"
+    columns:
+      - name: corridor_id
+        tests:
+          - not_null
+      - name: service_date
+        tests:
+          - not_null
