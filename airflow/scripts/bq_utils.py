@@ -9,27 +9,31 @@ def load_json_to_bq(
     table_id: str,
     service_date: str,
     partition_field: str = "_service_date",
+    skip_delete: bool = False,
 ) -> None:
     """Load a JSON file from GCS into a BigQuery table.
 
     Implements partition-scoped overwrite:
-    1. Delete all rows for the given service_date
+    1. Delete all rows for the given service_date (unless skip_delete=True)
     2. Load new data from GCS
+
+    Use skip_delete=True when loading multiple chunks for the same partition
+    (delete once before the first chunk, then append the rest).
     """
     client = bigquery.Client()
 
-    # Step 1: Delete existing partition data
-    delete_sql = f"""
-    DELETE FROM `{table_id}`
-    WHERE {partition_field} = '{service_date}'
-    """
-    try:
-        client.query(delete_sql).result()
-    except Exception:
-        # Table may not exist yet on first run — that's OK
-        pass
+    if not skip_delete:
+        delete_sql = f"""
+        DELETE FROM `{table_id}`
+        WHERE {partition_field} = '{service_date}'
+        """
+        try:
+            client.query(delete_sql).result()
+        except Exception:
+            # Table may not exist yet on first run — that's OK
+            pass
 
-    # Step 2: Load from GCS
+    # Load from GCS
     job_config = bigquery.LoadJobConfig(
         source_format=bigquery.SourceFormat.NEWLINE_DELIMITED_JSON,
         autodetect=True,

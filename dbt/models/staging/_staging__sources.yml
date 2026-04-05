@@ -37,6 +37,30 @@ sources:
             tests:
               - not_null
 
+      - name: rdt_services
+        description: "Historical train stop records from rijdendetreinen.nl (monthly CSV)"
+        columns:
+          - name: service_date
+            description: "Date of the train service"
+            tests:
+              - not_null
+          - name: station_code
+            description: "Station code for this stop"
+            tests:
+              - not_null
+
+      - name: rdt_disruptions
+        description: "Historical disruption records from rijdendetreinen.nl (yearly CSV)"
+        columns:
+          - name: rdt_id
+            description: "Unique disruption identifier"
+            tests:
+              - not_null
+          - name: start_time
+            description: "Disruption start timestamp"
+            tests:
+              - not_null
+
       - name: ndw_traffic_flow
         description: "Raw NDW 15-minute traffic observations"
         loaded_at_field: _PARTITIONTIME

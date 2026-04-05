@@ -20,6 +20,7 @@ x-airflow-common: &airflow-common
   volumes:
     - ./dags:/opt/airflow/dags
     - ./scripts:/opt/airflow/scripts
+    - ./tests:/opt/airflow/tests
     - ./keys:/opt/airflow/keys:ro
     - ./logs:/opt/airflow/logs
     - ../dbt:/opt/airflow/dbt

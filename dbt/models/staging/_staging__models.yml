@@ -34,6 +34,38 @@ models:
       - name: data_source
         description: "Origin: ns_api_v2 (live) or rdt_archive (historical)"
 
+  - name: stg_rdt_services
+    description: "Staged historical train stop records from rijdendetreinen.nl archive"
+    columns:
+      - name: departure_id
+        description: "stop_rdt_id — unique per stop record"
+        tests:
+          - not_null
+      - name: service_date
+        description: "Date of the train service"
+        tests:
+          - not_null
+      - name: station_code
+        description: "Station code for this stop"
+        tests:
+          - not_null
+
+  - name: stg_rdt_disruptions
+    description: "Staged historical disruption records from rijdendetreinen.nl archive"
+    columns:
+      - name: disruption_id
+        description: "rdt_id — unique disruption identifier"
+        tests:
+          - not_null
+      - name: service_date
+        description: "Date derived from disruption start_time"
+        tests:
+          - not_null
+      - name: cause
+        description: "Cause in English"
+      - name: cause_group
+        description: "Categorized cause group (e.g., accidents, weather, infra)"
+
   - name: stg_ndw_traffic_flow
     description: "Cleaned NDW 15-minute traffic observations"
     columns:
