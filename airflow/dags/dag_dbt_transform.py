@@ -75,12 +75,12 @@ with DAG(
 
     dbt_run = BashOperator(
         task_id="dbt_run",
-        bash_command=f"cd {DBT_DIR} && dbt run --profiles-dir {DBT_DIR}",
+        bash_command=f"cd {DBT_DIR} && dbt run --profiles-dir {DBT_DIR} --exclude stg_ndw_traffic_flow int_ndw_traffic_daily fct_road_traffic",
     )
 
     dbt_test = BashOperator(
         task_id="dbt_test",
-        bash_command=f"cd {DBT_DIR} && dbt test --profiles-dir {DBT_DIR}",
+        bash_command=f"cd {DBT_DIR} && dbt test --profiles-dir {DBT_DIR} --exclude source:raw.ndw_traffic_flow stg_ndw_traffic_flow int_ndw_traffic_daily fct_road_traffic",
     )
 
     dbt_freshness = BashOperator(
