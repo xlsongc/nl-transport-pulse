@@ -126,7 +126,7 @@ with DAG(
     description="Ingest NS disruptions and departures daily",
     schedule_interval="0 6 * * *",
     start_date=datetime(2026, 3, 1),
-    catchup=True,
+    catchup=False,
     max_active_runs=1,
     tags=["ingestion", "ns"],
 ) as dag:
