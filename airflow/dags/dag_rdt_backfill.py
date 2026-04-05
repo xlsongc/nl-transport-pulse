@@ -12,6 +12,7 @@ import logging
 from datetime import datetime, timedelta
 
 from airflow import DAG
+from airflow.models.param import Param
 from airflow.operators.python import PythonOperator
 
 sys.path.insert(0, os.path.join(os.environ.get("AIRFLOW_HOME", "/opt/airflow"), "scripts"))
@@ -51,8 +52,8 @@ def _backfill_services(**context):
     from ingest_rdt import download_services
     from bq_utils import load_json_to_bq
 
-    conf = context["dag_run"].conf or {}
-    months = conf.get("services_months", [])
+    raw = context["params"].get("services_months", "")
+    months = [m.strip() for m in raw.split(",") if m.strip()] if raw else []
     bucket = os.environ["GCS_BUCKET_NAME"]
     project = os.environ["GCP_PROJECT_ID"]
     dataset = os.environ["BQ_RAW_DATASET"]
@@ -83,8 +84,8 @@ def _backfill_disruptions(**context):
     from ingest_rdt import download_disruptions
     from bq_utils import load_json_to_bq
 
-    conf = context["dag_run"].conf or {}
-    years = conf.get("disruptions_years", [])
+    raw = context["params"].get("disruptions_years", "")
+    years = [y.strip() for y in raw.split(",") if y.strip()] if raw else []
     bucket = os.environ["GCS_BUCKET_NAME"]
     project = os.environ["GCP_PROJECT_ID"]
     dataset = os.environ["BQ_RAW_DATASET"]
@@ -118,6 +119,18 @@ with DAG(
     start_date=datetime(2026, 1, 1),
     catchup=False,
     tags=["backfill", "historical", "rdt"],
+    params={
+        "services_months": Param(
+            default="",
+            type="string",
+            description="Comma-separated months, e.g. 2026-01,2026-02",
+        ),
+        "disruptions_years": Param(
+            default="",
+            type="string",
+            description="Comma-separated years, e.g. 2024,2025",
+        ),
+    },
 ) as dag:
     backfill_services = PythonOperator(
         task_id="backfill_services",
