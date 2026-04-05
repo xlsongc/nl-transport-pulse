@@ -7,5 +7,13 @@ st.set_page_config(
 )
 
 st.title("NL Transport Pulse")
-st.markdown("Dutch multimodal transport reliability dashboard")
-st.info("Dashboard pages will be added in Week 4.")
+st.markdown(
+    "Dutch multimodal transport reliability dashboard. "
+    "Use the sidebar to navigate between pages."
+)
+st.markdown("---")
+st.markdown(
+    "**Pages:**\n"
+    "- **Network Overview** — Corridor reliability scores, map, and trends\n"
+    "- **Corridor Explorer** — Deep-dive into specific corridors and stations"
+)
