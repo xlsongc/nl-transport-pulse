@@ -1,5 +1,5 @@
 with departures as (
-    select * from {{ ref('stg_ns_departures') }}
+    select * from {{ ref('int_departures_combined') }}
 ),
 
 disruptions as (
