@@ -10,6 +10,12 @@
     )
 }}
 
+{% set road_relation = adapter.get_relation(
+    database=target.project,
+    schema='core_nl_transport',
+    identifier='fct_road_traffic'
+) %}
+
 with train as (
     select
         corridor_id,
@@ -24,6 +30,7 @@ with train as (
     group by corridor_id, corridor_name, service_date
 ),
 
+{% if road_relation is not none %}
 road as (
     select
         corridor_id,
@@ -35,6 +42,7 @@ road as (
     from {{ ref('fct_road_traffic') }}
     group by corridor_id, service_date
 ),
+{% endif %}
 
 dates as (
     select * from {{ ref('dim_date') }}
@@ -55,13 +63,22 @@ select
     t.total_departures,
     t.disruption_count,
     round(t.avg_severe_delay_share, 2) as severe_delay_share,
+    {% if road_relation is not none %}
     round(r.avg_road_speed_kmh, 2) as avg_road_speed_kmh,
     r.total_vehicle_count,
     r.total_congestion_minutes,
     round(r.avg_speed_vs_baseline_pct, 2) as road_speed_vs_baseline_pct
+    {% else %}
+    cast(null as float64) as avg_road_speed_kmh,
+    cast(null as int64) as total_vehicle_count,
+    cast(null as int64) as total_congestion_minutes,
+    cast(null as float64) as road_speed_vs_baseline_pct
+    {% endif %}
 from train t
+{% if road_relation is not none %}
 left join road r
     on t.corridor_id = r.corridor_id
     and t.service_date = r.service_date
+{% endif %}
 left join dates d
     on t.service_date = d.date
