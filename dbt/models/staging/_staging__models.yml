@@ -2,27 +2,37 @@ version: 2
 
 models:
   - name: stg_ns_disruptions
-    description: "Cleaned NS disruption events with typed columns"
+    description: "Staged NS disruption events — extracted from source-native raw JSON"
     columns:
       - name: disruption_id
         description: "Unique disruption identifier from NS API"
         tests:
           - not_null
       - name: service_date
-        description: "The date this disruption was active"
+        description: "Pipeline service date"
         tests:
           - not_null
+      - name: disruption_type
+        description: "DISRUPTION or MAINTENANCE"
+      - name: impact_score
+        description: "NS impact severity (1-5)"
+      - name: cause
+        description: "First cause label from timespans"
 
   - name: stg_ns_departures
-    description: "Cleaned NS departure records with computed delay"
+    description: "Staged NS departures — extracted from source-native raw JSON with computed delay"
     columns:
       - name: departure_id
-        description: "Composite key: station_code + planned_departure_ts"
+        description: "Composite key: station_code + service_date + planned_ts + direction"
         tests:
           - not_null
           - unique
       - name: delay_minutes
-        description: "Delay in minutes (actual - planned). 0 means on-time."
+        description: "Delay in minutes (actual - planned). Null if timestamps missing."
+      - name: is_cancelled
+        description: "Whether the departure was cancelled"
+      - name: data_source
+        description: "Origin: ns_api_v2 (live) or rdt_archive (historical)"
 
   - name: stg_ndw_traffic_flow
     description: "Cleaned NDW 15-minute traffic observations"

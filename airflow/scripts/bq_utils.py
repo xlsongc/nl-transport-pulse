@@ -8,6 +8,7 @@ def load_json_to_bq(
     gcs_uri: str,
     table_id: str,
     service_date: str,
+    partition_field: str = "_service_date",
 ) -> None:
     """Load a JSON file from GCS into a BigQuery table.
 
@@ -20,7 +21,7 @@ def load_json_to_bq(
     # Step 1: Delete existing partition data
     delete_sql = f"""
     DELETE FROM `{table_id}`
-    WHERE service_date = '{service_date}'
+    WHERE {partition_field} = '{service_date}'
     """
     try:
         client.query(delete_sql).result()
@@ -33,10 +34,6 @@ def load_json_to_bq(
         source_format=bigquery.SourceFormat.NEWLINE_DELIMITED_JSON,
         autodetect=True,
         write_disposition=bigquery.WriteDisposition.WRITE_APPEND,
-        time_partitioning=bigquery.TimePartitioning(
-            type_=bigquery.TimePartitioningType.DAY,
-            field="service_date",
-        ),
     )
     load_job = client.load_table_from_uri(gcs_uri, table_id, job_config=job_config)
     load_job.result()

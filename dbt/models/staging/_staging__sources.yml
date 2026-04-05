@@ -6,27 +6,34 @@ sources:
     schema: raw_nl_transport
     tables:
       - name: ns_disruptions
-        description: "Raw NS disruption events"
+        description: "Source-native raw NS disruption events from v3 API"
         loaded_at_field: _PARTITIONTIME
         freshness:
           warn_after: {count: 36, period: hour}
           error_after: {count: 48, period: hour}
         columns:
-          - name: disruption_id
+          - name: id
+            description: "NS disruption ID"
             tests:
               - not_null
-          - name: service_date
+          - name: _service_date
+            description: "Injected at ingestion: pipeline service date"
             tests:
               - not_null
 
       - name: ns_departures
-        description: "Raw NS departure records with delay"
+        description: "Source-native raw NS departure records from v2 API"
         loaded_at_field: _PARTITIONTIME
         freshness:
           warn_after: {count: 36, period: hour}
           error_after: {count: 48, period: hour}
         columns:
-          - name: service_date
+          - name: _service_date
+            description: "Injected at ingestion: pipeline service date"
+            tests:
+              - not_null
+          - name: _station_code
+            description: "Injected at ingestion: station queried"
             tests:
               - not_null
 
