@@ -19,6 +19,14 @@ def get_project_dataset() -> tuple[str, str]:
     return project, dataset
 
 
+def get_project_datasets() -> tuple[str, str, str]:
+    """Return (project_id, core_dataset, staging_dataset) from env vars."""
+    project = os.environ.get("GCP_PROJECT_ID", "")
+    core_dataset = os.environ.get("BQ_CORE_DATASET", "core_nl_transport")
+    staging_dataset = os.environ.get("BQ_STAGING_DATASET", "staging_nl_transport")
+    return project, core_dataset, staging_dataset
+
+
 @st.cache_data(ttl=3600)
 def query_df(sql: str) -> pd.DataFrame:
     """Execute a SQL query and return a pandas DataFrame. Cached for 1 hour."""
