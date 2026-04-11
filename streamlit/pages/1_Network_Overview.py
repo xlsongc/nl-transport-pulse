@@ -27,8 +27,7 @@ def _prepare_period_aggregation(df: pd.DataFrame, freq: str) -> pd.DataFrame:
             [
                 pd.Grouper(key="service_date", freq=freq),
                 "corridor_name",
-            ],
-            as_index=False,
+            ]
         )
         .agg(
             total_departures=("total_departures", "sum"),
@@ -36,6 +35,7 @@ def _prepare_period_aggregation(df: pd.DataFrame, freq: str) -> pd.DataFrame:
             avg_delay_min=("avg_delay_min", "mean"),
             severe_delay_share=("severe_delay_share", "mean"),
         )
+        .reset_index()
         .rename(columns={"service_date": "period_start"})
     )
     return grouped
@@ -112,6 +112,17 @@ fig_volume = px.bar(
 fig_volume.update_layout(height=380)
 st.plotly_chart(fig_volume, use_container_width=True)
 
+fig_trend = px.line(
+    df.sort_values(["service_date", "corridor_name"]),
+    x="service_date",
+    y="pct_on_time",
+    color="corridor_name",
+    title="Daily On-Time % by Corridor",
+    labels={"service_date": "Date", "pct_on_time": "On-Time %"},
+)
+fig_trend.update_layout(height=380)
+st.plotly_chart(fig_trend, use_container_width=True)
+
 st.subheader("Network Stress Map")
 station_sql = f"""
 select distinct
@@ -186,6 +197,12 @@ fig_calendar.update_layout(height=320, margin=dict(l=0, r=0, t=30, b=0))
 st.plotly_chart(fig_calendar, use_container_width=True)
 
 st.subheader("Disruption Cause Mix")
+cause_grain = st.selectbox(
+    "Cause aggregation",
+    options=["Week", "Month"],
+    key="cause_grain",
+)
+cause_trunc = "week" if cause_grain == "Week" else "month"
 sql_causes = f"""
 with historical as (
     select
@@ -207,7 +224,7 @@ combined as (
     select * from live
 )
 select
-    date_trunc(service_date, month) as period_start,
+    date_trunc(service_date, {cause_trunc}) as period_start,
     cause_family,
     count(*) as disruption_count
 from combined
@@ -222,8 +239,8 @@ if not df_causes.empty:
         x="period_start",
         y="disruption_count",
         color="cause_family",
-        title="Monthly disruption causes",
-        labels={"period_start": "Month", "disruption_count": "Disruptions"},
+        title=f"{cause_grain}ly disruption causes",
+        labels={"period_start": cause_grain, "disruption_count": "Disruptions"},
     )
     fig_causes.update_layout(height=380)
     st.plotly_chart(fig_causes, use_container_width=True)

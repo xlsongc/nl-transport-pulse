@@ -79,13 +79,14 @@ with col4:
 
 st.subheader("Volume and Delay Trend")
 period_df = (
-    df_corridor.groupby(pd.Grouper(key="service_date", freq=volume_grain), as_index=False)
+    df_corridor.groupby(pd.Grouper(key="service_date", freq=volume_grain))
     .agg(
         total_departures=("total_departures", "sum"),
         avg_delay_min=("avg_delay_min", "mean"),
         disruption_count=("disruption_count", "sum"),
         severe_delay_share=("severe_delay_share", "mean"),
     )
+    .reset_index()
     .rename(columns={"service_date": "period_start"})
 )
 

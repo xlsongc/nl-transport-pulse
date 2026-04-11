@@ -35,5 +35,5 @@ from delays d
 left join stations s
     on d.station_code = s.station_code
 {% if is_incremental() %}
-where d.service_date > (select max(service_date) from {{ this }})
+where d.service_date >= date_sub(current_date(), interval 3 day)
 {% endif %}

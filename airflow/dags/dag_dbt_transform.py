@@ -6,6 +6,7 @@ Runs dbt deps, seed, run, test, snapshot, source freshness, then alert checks.
 from datetime import datetime, timedelta
 
 from airflow import DAG
+from airflow.models.param import Param
 from airflow.operators.bash import BashOperator
 from airflow.operators.python import PythonOperator
 
@@ -62,7 +63,15 @@ with DAG(
     start_date=datetime(2026, 3, 1),
     catchup=False,
     tags=["transformation", "dbt", "alerts"],
+    params={
+        "full_refresh": Param(
+            default=False,
+            type="boolean",
+            description="Run dbt with --full-refresh (use after backfill)",
+        ),
+    },
 ) as dag:
+    FULL_REFRESH = "{% if params.full_refresh %}--full-refresh{% endif %}"
     dbt_deps = BashOperator(
         task_id="dbt_deps",
         bash_command=f"cd {DBT_DIR} && dbt deps --profiles-dir {DBT_DIR}",
@@ -75,17 +84,17 @@ with DAG(
 
     dbt_run = BashOperator(
         task_id="dbt_run",
-        bash_command=f"cd {DBT_DIR} && dbt run --profiles-dir {DBT_DIR} --exclude stg_ndw_traffic_flow int_ndw_traffic_daily fct_road_traffic",
+        bash_command=f"cd {DBT_DIR} && dbt run --profiles-dir {DBT_DIR} --exclude stg_ndw_traffic_flow int_ndw_traffic_daily fct_road_traffic {FULL_REFRESH}",
     )
 
     dbt_test = BashOperator(
         task_id="dbt_test",
-        bash_command=f"cd {DBT_DIR} && dbt test --profiles-dir {DBT_DIR} --exclude source:raw.ndw_traffic_flow stg_ndw_traffic_flow int_ndw_traffic_daily fct_road_traffic",
+        bash_command=f"cd {DBT_DIR} && dbt test --profiles-dir {DBT_DIR} --exclude source:raw.ndw_traffic_flow stg_ndw_traffic_flow int_ndw_traffic_daily fct_road_traffic dim_ndw_locations",
     )
 
     dbt_freshness = BashOperator(
         task_id="dbt_source_freshness",
-        bash_command=f"cd {DBT_DIR} && dbt source freshness --profiles-dir {DBT_DIR}",
+        bash_command=f"cd {DBT_DIR} && dbt source freshness --profiles-dir {DBT_DIR} --select source:raw.ns_departures source:raw.ns_disruptions || true",
     )
 
     dbt_snapshot = BashOperator(

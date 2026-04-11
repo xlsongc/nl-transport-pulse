@@ -48,36 +48,34 @@ def _upload_ndjson_chunked(records, bucket, gcs_prefix, chunk_size=CHUNK_SIZE):
     return uris
 
 
-def _backfill_services(**context):
+def _backfill_single_month(month: str) -> None:
+    """Backfill services for a single month. Runs as its own task to isolate memory."""
     from ingest_rdt import download_services
     from bq_utils import load_json_to_bq
 
-    raw = context["params"].get("services_months", "")
-    months = [m.strip() for m in raw.split(",") if m.strip()] if raw else []
     bucket = os.environ["GCS_BUCKET_NAME"]
     project = os.environ["GCP_PROJECT_ID"]
     dataset = os.environ["BQ_RAW_DATASET"]
     table_id = f"{project}.{dataset}.rdt_services"
 
-    for month in months:
-        logger.info("=== Backfilling services for %s ===", month)
-        records = download_services(month)
-        if not records:
-            logger.warning("No records for %s, skipping", month)
-            continue
+    logger.info("=== Backfilling services for %s ===", month)
+    records = download_services(month)
+    if not records:
+        logger.warning("No records for %s, skipping", month)
+        return
 
-        gcs_prefix = f"rdt/services/{month}"
-        uris = _upload_ndjson_chunked(records, bucket, gcs_prefix)
+    gcs_prefix = f"rdt/services/{month}"
+    uris = _upload_ndjson_chunked(records, bucket, gcs_prefix)
 
-        for i, uri in enumerate(uris):
-            load_json_to_bq(
-                gcs_uri=uri,
-                table_id=table_id,
-                service_date=month,
-                partition_field="_year_month",
-                skip_delete=(i > 0),  # Only delete on first chunk
-            )
-        logger.info("Loaded %d records for %s to BQ", len(records), month)
+    for i, uri in enumerate(uris):
+        load_json_to_bq(
+            gcs_uri=uri,
+            table_id=table_id,
+            service_date=month,
+            partition_field="_year_month",
+            skip_delete=(i > 0),
+        )
+    logger.info("Loaded %d records for %s to BQ", len(records), month)
 
 
 def _backfill_disruptions(**context):
@@ -85,7 +83,7 @@ def _backfill_disruptions(**context):
     from bq_utils import load_json_to_bq
 
     raw = context["params"].get("disruptions_years", "")
-    years = [y.strip() for y in raw.split(",") if y.strip()] if raw else []
+    years = [y.strip() for y in raw.split(",") if y.strip() and y.strip().isdigit()] if raw else []
     bucket = os.environ["GCS_BUCKET_NAME"]
     project = os.environ["GCP_PROJECT_ID"]
     dataset = os.environ["BQ_RAW_DATASET"]
@@ -111,6 +109,18 @@ def _backfill_disruptions(**context):
         logger.info("Loaded %d records for %s to BQ", len(records), year)
 
 
+def _parse_months(**context) -> list[dict]:
+    """Parse services_months param into list of dicts for dynamic task mapping."""
+    raw = context["params"].get("services_months", "")
+    months = [m.strip() for m in raw.split(",") if m.strip() and m.strip()[:4].isdigit()] if raw else []
+    return [{"month": m} for m in months]
+
+
+def _backfill_month_task(month: str, **context) -> None:
+    """Wrapper for dynamic task mapping — calls _backfill_single_month."""
+    _backfill_single_month(month)
+
+
 with DAG(
     dag_id="dag_rdt_backfill",
     default_args=default_args,
@@ -118,30 +128,38 @@ with DAG(
     schedule_interval=None,  # Manual trigger only
     start_date=datetime(2026, 1, 1),
     catchup=False,
+    max_active_runs=1,
     tags=["backfill", "historical", "rdt"],
     params={
         "services_months": Param(
-            default="",
+            default="none",
             type="string",
-            description="Comma-separated months, e.g. 2026-01,2026-02",
+            description="Comma-separated months, e.g. 2025-04,2025-05,2025-06. Use 'none' to skip.",
         ),
         "disruptions_years": Param(
-            default="",
+            default="none",
             type="string",
-            description="Comma-separated years, e.g. 2024,2025",
+            description="Comma-separated years, e.g. 2024,2025. Use 'none' to skip.",
         ),
     },
 ) as dag:
-    backfill_services = PythonOperator(
-        task_id="backfill_services",
-        python_callable=_backfill_services,
-    )
-
     backfill_disruptions = PythonOperator(
         task_id="backfill_disruptions",
         python_callable=_backfill_disruptions,
     )
 
-    # Independent — can run in parallel
-    backfill_services
-    backfill_disruptions
+    parse_months = PythonOperator(
+        task_id="parse_months",
+        python_callable=_parse_months,
+    )
+
+    # Dynamic task mapping: one task per month, each in its own process.
+    # Memory is released between months — no more OOM on multi-month backfills.
+    # max_active_tis_per_dag=1 ensures sequential execution.
+    backfill_services = PythonOperator.partial(
+        task_id="backfill_service_month",
+        python_callable=_backfill_month_task,
+        max_active_tis_per_dag=1,
+    ).expand(op_kwargs=parse_months.output)
+
+    parse_months >> backfill_services

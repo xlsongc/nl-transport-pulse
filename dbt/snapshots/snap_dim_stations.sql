@@ -3,7 +3,7 @@
 {{
     config(
         target_schema='core_nl_transport',
-        unique_key='station_code',
+        unique_key="station_code || '-' || cast(corridor_id as string)",
         strategy='check',
         check_cols=['station_name', 'corridor_id', 'corridor_name', 'lat', 'lon'],
     )

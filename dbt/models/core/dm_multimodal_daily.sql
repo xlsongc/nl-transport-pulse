@@ -82,3 +82,4 @@ left join road r
 {% endif %}
 left join dates d
     on t.service_date = d.date
+where t.corridor_id is not null
