@@ -72,7 +72,13 @@ select
     disruption_count,
     severe_delay_share,
     avg_road_speed_kmh,
-    total_congestion_minutes
+    total_congestion_minutes,
+    avg_temp_c,
+    precipitation_mm,
+    avg_wind_speed_kmh,
+    max_wind_gust_kmh,
+    is_stormy,
+    is_heavy_rain
 from `{project}.{core_dataset}.dm_multimodal_daily`
 where service_date between '{start_date}' and '{end_date}'
 order by service_date, corridor_name
@@ -245,30 +251,122 @@ if not df_causes.empty:
     fig_causes.update_layout(height=380)
     st.plotly_chart(fig_causes, use_container_width=True)
 
+st.subheader("Weather Impact on Reliability")
+has_weather = "avg_wind_speed_kmh" in df.columns and df["avg_wind_speed_kmh"].notna().any()
+
+if has_weather:
+    df_wx = df.dropna(subset=["avg_wind_speed_kmh"]).copy()
+
+    # Wind speed vs on-time %
+    fig_wind = px.scatter(
+        df_wx,
+        x="avg_wind_speed_kmh",
+        y="pct_on_time",
+        color="corridor_name",
+        title="Wind Speed vs On-Time Performance",
+        labels={
+            "avg_wind_speed_kmh": "Avg Wind Speed (km/h)",
+            "pct_on_time": "On-Time %",
+        },
+        opacity=0.5,
+        trendline="ols",
+    )
+    fig_wind.update_layout(height=400)
+    st.plotly_chart(fig_wind, use_container_width=True)
+
+    # Weather conditions comparison
+    df_wx["weather_condition"] = "Normal"
+    df_wx.loc[df_wx["is_stormy"] == True, "weather_condition"] = "Stormy (wind >75 km/h)"
+    df_wx.loc[df_wx["is_heavy_rain"] == True, "weather_condition"] = "Heavy Rain (>10mm)"
+
+    weather_summary = (
+        df_wx.groupby("weather_condition")
+        .agg(
+            days=("service_date", "nunique"),
+            avg_on_time=("pct_on_time", "mean"),
+            avg_delay=("avg_delay_min", "mean"),
+            avg_severe=("severe_delay_share", "mean"),
+        )
+        .reset_index()
+        .rename(columns={
+            "weather_condition": "Condition",
+            "days": "Days",
+            "avg_on_time": "Avg On-Time %",
+            "avg_delay": "Avg Delay (min)",
+            "avg_severe": "Severe Delay %",
+        })
+    )
+    st.dataframe(
+        weather_summary.style.format({
+            "Avg On-Time %": "{:.1f}",
+            "Avg Delay (min)": "{:.2f}",
+            "Severe Delay %": "{:.2f}",
+        }),
+        use_container_width=True,
+    )
+
+    # Precipitation vs delay
+    col_w1, col_w2 = st.columns(2)
+    with col_w1:
+        fig_rain = px.scatter(
+            df_wx,
+            x="precipitation_mm",
+            y="avg_delay_min",
+            color="corridor_name",
+            title="Precipitation vs Avg Delay",
+            labels={
+                "precipitation_mm": "Precipitation (mm)",
+                "avg_delay_min": "Avg Delay (min)",
+            },
+            opacity=0.5,
+        )
+        fig_rain.update_layout(height=350)
+        st.plotly_chart(fig_rain, use_container_width=True)
+    with col_w2:
+        fig_temp = px.scatter(
+            df_wx,
+            x="avg_temp_c",
+            y="pct_on_time",
+            color="corridor_name",
+            title="Temperature vs On-Time %",
+            labels={
+                "avg_temp_c": "Avg Temperature (°C)",
+                "pct_on_time": "On-Time %",
+            },
+            opacity=0.5,
+        )
+        fig_temp.update_layout(height=350)
+        st.plotly_chart(fig_temp, use_container_width=True)
+else:
+    st.info("Weather data not yet available. Run the KNMI ingestion DAG and dbt to enable weather analysis.")
+
 st.subheader("Worst Corridor-Days")
+worst_cols = ["service_date", "corridor_name", "avg_delay_min", "severe_delay_share", "disruption_count", "total_departures"]
+worst_rename = {
+    "service_date": "Date",
+    "corridor_name": "Corridor",
+    "avg_delay_min": "Avg Delay (min)",
+    "severe_delay_share": "Severe Delay %",
+    "disruption_count": "Disruptions",
+    "total_departures": "Departures",
+}
+if has_weather:
+    worst_cols.extend(["avg_wind_speed_kmh", "precipitation_mm"])
+    worst_rename["avg_wind_speed_kmh"] = "Wind (km/h)"
+    worst_rename["precipitation_mm"] = "Rain (mm)"
 worst_days = (
     df.sort_values(
         by=["avg_delay_min", "severe_delay_share", "disruption_count"],
         ascending=[False, False, False],
-    )[["service_date", "corridor_name", "avg_delay_min", "severe_delay_share", "disruption_count", "total_departures"]]
+    )[worst_cols]
     .head(12)
-    .rename(
-        columns={
-            "service_date": "Date",
-            "corridor_name": "Corridor",
-            "avg_delay_min": "Avg Delay (min)",
-            "severe_delay_share": "Severe Delay %",
-            "disruption_count": "Disruptions",
-            "total_departures": "Departures",
-        }
-    )
+    .rename(columns=worst_rename)
 )
+fmt = {"Avg Delay (min)": "{:.2f}", "Severe Delay %": "{:.2f}"}
+if has_weather:
+    fmt["Wind (km/h)"] = "{:.1f}"
+    fmt["Rain (mm)"] = "{:.1f}"
 st.dataframe(
-    worst_days.style.format(
-        {
-            "Avg Delay (min)": "{:.2f}",
-            "Severe Delay %": "{:.2f}",
-        }
-    ),
+    worst_days.style.format(fmt),
     use_container_width=True,
 )
