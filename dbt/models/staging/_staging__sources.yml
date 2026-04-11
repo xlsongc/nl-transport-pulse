@@ -74,3 +74,15 @@ sources:
           - name: service_date
             tests:
               - not_null
+
+      - name: knmi_weather
+        description: "Daily weather observations from KNMI for corridor stations"
+        columns:
+          - name: service_date
+            description: "Date of the weather observation"
+            tests:
+              - not_null
+          - name: station_code
+            description: "KNMI weather station code"
+            tests:
+              - not_null
