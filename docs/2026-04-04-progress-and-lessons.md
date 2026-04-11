@@ -1,25 +1,34 @@
 # Progress Report & Lessons Learned — 2026-04-04
 
+Updated: 2026-04-05
+
 ## Summary
 
-End-to-end NS ingestion pipeline verified: NS API -> GCS -> BigQuery -> dbt (staging -> intermediate -> core). All dbt tests pass. Alerting system (Task 18) implemented. NDW pipeline code complete but awaiting manual Dexter CSV data.
+Rail pipeline is now split into two verified paths:
+
+- Live path: `NS API -> GCS -> BigQuery -> dbt -> Streamlit`
+- Historical path: `rijdendetreinen.nl archive -> GCS -> BigQuery -> dbt`
+
+NS live ingestion has been refactored to source-native raw storage. Historical rail backfill is implemented through a manual-trigger Airflow DAG with month/year config. Streamlit pages and alerting code are in place. NDW remains the main open gap and still depends on manual Dexter CSV import.
 
 ---
 
-## Tasks Completed This Session
+## Tasks Completed
 
 | Task | Status | Notes |
 |------|--------|-------|
 | Task 12: End-to-end ingestion verification | Done | NS pipeline fully verified against live API + real BQ |
 | Task 17: dbt fact tables + data mart | Done | fct_train_performance (incremental), fct_road_traffic, dm_multimodal_daily |
 | Task 18: Alerting | Done | alert_checker.py + dag_dbt_transform.py + unit tests |
+| Historical rail backfill | Done | `dag_rdt_backfill` + `ingest_rdt.py` + dbt staging/intermediate integration |
+| Streamlit pages | Done | Network Overview + Corridor Explorer read from BigQuery models |
 
 ## Infrastructure Setup
 
 - Terraform apply: GCS bucket, 3 BQ datasets, service account + key — all provisioned
 - Service account key copied to `airflow/keys/gcp-credentials.json`
 - `.env` placed in `airflow/` (standard: same directory as `docker-compose.yml`)
-- Docker Compose: airflow-init, webserver (8080), scheduler all running
+- Docker Compose: airflow-init, webserver (8080), scheduler, and Streamlit running
 
 ---
 
@@ -155,17 +164,17 @@ concat(station_code, '_', service_date, '_', planned_departure_ts, '_', directio
 
 | Layer | Count | Status |
 |-------|-------|--------|
-| GCS raw files | 8 files (4 days x 2 endpoints) | OK |
-| BQ ns_disruptions | 448 rows | OK |
-| BQ ns_departures | 694 rows | OK |
+| GCS live raw files | NS daily snapshots present | OK |
+| BQ ns live raw | NS disruptions + departures loaded | OK |
+| BQ rdt_services raw | 1,915,136 March 2026 stop records | OK |
+| BQ rdt_disruptions raw | 6,676 rows for 2025 | OK |
 | dbt seeds | 3 (corridors, NDW mapping, holidays) | OK |
-| dbt staging views | 2/3 (NDW source table missing) | Expected |
-| int_train_delays_daily | 42 rows | OK |
-| dim_stations | 18 rows | OK |
-| dim_date | 730 rows | OK |
-| dim_ndw_locations | 54 rows | OK |
-| fct_train_performance | 54 rows | OK |
-| dbt tests | 12/12 pass | OK |
+| dbt staging | NS live + RDT historical staging models working | OK |
+| int_departures_combined | ~104K departure records from March 2026 history | OK |
+| int_train_delays_daily | 1,100 daily aggregates for March 2026 | OK |
+| fct_train_performance | Updated to use combined live/history rail data | OK |
+| dm_multimodal_daily | Train-side metrics populated; road-side fields still pending NDW | Partial |
+| dbt tests | Rail path tests pass; NDW-dependent checks remain blocked by missing data | OK |
 
 ---
 
@@ -173,10 +182,18 @@ concat(station_code, '_', service_date, '_', planned_departure_ts, '_', directio
 
 | Task | Description | Blocked? |
 |------|-------------|----------|
-| Task 19 | Streamlit BQ client utility | No |
-| Task 20 | Streamlit Network Overview page | No |
-| Task 21 | Streamlit Corridor Explorer page | No |
 | Task 22 | Generate dbt docs | No |
 | Task 23 | Final README + end-to-end verification | No |
 | NDW data | Manual Dexter CSV download + import | User action needed |
 | NDW pipeline verify | stg_ndw_traffic_flow, int_ndw_traffic_daily, fct_road_traffic, dm_multimodal_daily | Blocked on NDW data |
+| Optional: weather integration | Add external explanatory dimension for rail analytics | No |
+
+---
+
+## Current Architecture Notes
+
+- `dag_ns_ingest` is for live daily collection only. `catchup=False` is intentional because NS departures are not a true historical API.
+- `dag_rdt_backfill` is a manual backfill DAG. It accepts `services_months` and `disruptions_years` in `dag_run.conf`.
+- NS live raw is now source-native. Business logic moved downstream into dbt staging.
+- Historical and live rail data are unified in `int_departures_combined`.
+- NDW is still semi-manual by design because Dexter export requires captcha-protected user interaction.
