@@ -59,6 +59,8 @@ def _extract_and_upload_departures(**context):
     from gcs_utils import upload_json_to_gcs
 
     service_date = context["ds"]
+    # Use logical_date hour to create unique GCS path per poll
+    poll_hour = context["logical_date"].strftime("%H%M")
     api_key = os.environ["NS_API_KEY"]
     base_url = os.environ["NS_API_BASE_URL"]
     bucket = os.environ["GCS_BUCKET_NAME"]
@@ -73,7 +75,7 @@ def _extract_and_upload_departures(**context):
         gcs_uri = upload_json_to_gcs(
             data=all_departures,
             bucket_name=bucket,
-            blob_path=f"raw/ns/departures/dt={service_date}/departures.json",
+            blob_path=f"raw/ns/departures/dt={service_date}/departures_{poll_hour}.json",
         )
         context["ti"].xcom_push(key="departures_gcs_uri", value=gcs_uri)
     else:
@@ -113,10 +115,13 @@ def _load_departures_to_bq(**context):
     dataset = os.environ["BQ_RAW_DATASET"]
     service_date = context["ds"]
 
+    # skip_delete=True: multiple polls per day append to the same partition.
+    # Deduplication happens in dbt staging via departure_id.
     load_json_to_bq(
         gcs_uri=gcs_uri,
         table_id=f"{project}.{dataset}.ns_departures",
         service_date=service_date,
+        skip_delete=True,
     )
 
 
@@ -124,7 +129,7 @@ with DAG(
     dag_id="dag_ns_ingest",
     default_args=default_args,
     description="Ingest NS disruptions and departures daily",
-    schedule_interval="0 6 * * *",
+    schedule_interval="0 6,9,13,18 * * *",  # 4x daily: morning, AM peak, midday, PM peak
     start_date=datetime(2026, 3, 1),
     catchup=False,
     max_active_runs=1,

@@ -1,0 +1,10 @@
+knmi_station_code,knmi_station_name,corridor_id,corridor_name
+240,Schiphol,1,Amsterdam-Rotterdam
+344,Rotterdam Airport,1,Amsterdam-Rotterdam
+240,Schiphol,2,Amsterdam-Utrecht
+260,De Bilt,2,Amsterdam-Utrecht
+215,Voorschoten,3,Den Haag-Rotterdam
+344,Rotterdam Airport,3,Den Haag-Rotterdam
+260,De Bilt,4,Utrecht-Eindhoven
+370,Eindhoven Airport,4,Utrecht-Eindhoven
+260,De Bilt,5,Utrecht-Arnhem

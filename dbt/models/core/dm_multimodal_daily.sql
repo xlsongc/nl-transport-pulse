@@ -16,6 +16,12 @@
     identifier='fct_road_traffic'
 ) %}
 
+{% set weather_relation = adapter.get_relation(
+    database=target.project,
+    schema='raw_nl_transport',
+    identifier='knmi_weather'
+) %}
+
 with train as (
     select
         corridor_id,
@@ -44,6 +50,28 @@ road as (
 ),
 {% endif %}
 
+{% if weather_relation is not none %}
+weather as (
+    -- Average weather across KNMI stations mapped to each corridor
+    select
+        cm.corridor_id,
+        w.service_date,
+        round(avg(w.avg_temp_c), 1) as avg_temp_c,
+        round(avg(w.min_temp_c), 1) as min_temp_c,
+        round(avg(w.max_temp_c), 1) as max_temp_c,
+        round(avg(w.precipitation_mm), 1) as precipitation_mm,
+        round(avg(w.precipitation_duration_h), 1) as precipitation_duration_h,
+        round(avg(w.avg_wind_speed_kmh), 1) as avg_wind_speed_kmh,
+        round(max(w.max_wind_gust_kmh), 1) as max_wind_gust_kmh,
+        max(case when w.is_stormy then 1 else 0 end) = 1 as is_stormy,
+        max(case when w.is_heavy_rain then 1 else 0 end) = 1 as is_heavy_rain
+    from {{ ref('stg_knmi_weather') }} w
+    inner join {{ ref('knmi_corridor_mapping') }} cm
+        on w.knmi_station_code = cast(cm.knmi_station_code as string)
+    group by cm.corridor_id, w.service_date
+),
+{% endif %}
+
 dates as (
     select * from {{ ref('dim_date') }}
 )
@@ -67,18 +95,44 @@ select
     round(r.avg_road_speed_kmh, 2) as avg_road_speed_kmh,
     r.total_vehicle_count,
     r.total_congestion_minutes,
-    round(r.avg_speed_vs_baseline_pct, 2) as road_speed_vs_baseline_pct
+    round(r.avg_speed_vs_baseline_pct, 2) as road_speed_vs_baseline_pct,
     {% else %}
     cast(null as float64) as avg_road_speed_kmh,
     cast(null as int64) as total_vehicle_count,
     cast(null as int64) as total_congestion_minutes,
-    cast(null as float64) as road_speed_vs_baseline_pct
+    cast(null as float64) as road_speed_vs_baseline_pct,
+    {% endif %}
+    {% if weather_relation is not none %}
+    wx.avg_temp_c,
+    wx.min_temp_c,
+    wx.max_temp_c,
+    wx.precipitation_mm,
+    wx.precipitation_duration_h,
+    wx.avg_wind_speed_kmh,
+    wx.max_wind_gust_kmh,
+    wx.is_stormy,
+    wx.is_heavy_rain
+    {% else %}
+    cast(null as float64) as avg_temp_c,
+    cast(null as float64) as min_temp_c,
+    cast(null as float64) as max_temp_c,
+    cast(null as float64) as precipitation_mm,
+    cast(null as float64) as precipitation_duration_h,
+    cast(null as float64) as avg_wind_speed_kmh,
+    cast(null as float64) as max_wind_gust_kmh,
+    cast(null as boolean) as is_stormy,
+    cast(null as boolean) as is_heavy_rain
     {% endif %}
 from train t
 {% if road_relation is not none %}
 left join road r
     on t.corridor_id = r.corridor_id
     and t.service_date = r.service_date
+{% endif %}
+{% if weather_relation is not none %}
+left join weather wx
+    on t.corridor_id = wx.corridor_id
+    and t.service_date = wx.service_date
 {% endif %}
 left join dates d
     on t.service_date = d.date

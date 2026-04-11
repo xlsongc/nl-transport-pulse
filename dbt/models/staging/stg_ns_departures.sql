@@ -47,6 +47,17 @@ cleaned as (
 
     from source
     where cancelled is null or cast(cancelled as boolean) = false
+),
+
+-- Deduplicate: multiple polls per day capture overlapping departures.
+-- Keep the latest snapshot (most accurate actual times) per departure.
+deduped as (
+    select *,
+        row_number() over (
+            partition by departure_id
+            order by _ingested_at desc
+        ) as _rn
+    from cleaned
 )
 
-select * from cleaned
+select * except(_rn) from deduped where _rn = 1
