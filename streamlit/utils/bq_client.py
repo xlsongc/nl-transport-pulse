@@ -27,8 +27,8 @@ def get_project_datasets() -> tuple[str, str, str]:
     return project, core_dataset, staging_dataset
 
 
-@st.cache_data(ttl=3600)
+@st.cache_data(ttl=300)
 def query_df(sql: str) -> pd.DataFrame:
-    """Execute a SQL query and return a pandas DataFrame. Cached for 1 hour."""
+    """Execute a SQL query and return a pandas DataFrame. Cached for 5 minutes."""
     client = get_bq_client()
     return client.query(sql).to_dataframe()

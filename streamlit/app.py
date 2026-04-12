@@ -20,7 +20,7 @@ st.caption("Dutch Rail Reliability & Weather Impact Dashboard")
 
 st.markdown("---")
 
-col1, col2, col3 = st.columns(3)
+col1, col2 = st.columns(2)
 
 with col1:
     st.markdown("### Network Overview")
@@ -36,11 +36,20 @@ with col2:
         "performance, operator mix, and disruption drivers."
     )
 
+col3, col4 = st.columns(2)
+
 with col3:
     st.markdown("### Weather Impact")
     st.markdown(
         "How wind, rain, and temperature affect train reliability. "
         "26 years of KNMI weather data correlated with rail performance."
+    )
+
+with col4:
+    st.markdown("### System & Operators")
+    st.markdown(
+        "Network scale, operator market share and reliability ranking, "
+        "busiest stations, and 15-year disruption trend analysis."
     )
 
 st.markdown("---")
