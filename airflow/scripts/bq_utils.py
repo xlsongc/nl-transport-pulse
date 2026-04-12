@@ -1,7 +1,12 @@
 """Helpers for loading data from GCS into BigQuery with partition-scoped overwrite."""
 from __future__ import annotations
 
+import logging
+import time
+
 from google.cloud import bigquery
+
+logger = logging.getLogger(__name__)
 
 
 def load_json_to_bq(
@@ -27,13 +32,17 @@ def load_json_to_bq(
         DELETE FROM `{table_id}`
         WHERE {partition_field} = '{service_date}'
         """
+        logger.info("[bq] DELETE %s WHERE %s = '%s'", table_id, partition_field, service_date)
         try:
-            client.query(delete_sql).result()
-        except Exception:
+            result = client.query(delete_sql).result()
+            logger.info("[bq] DELETE complete — %d rows removed", result.num_dml_affected or 0)
+        except Exception as exc:
             # Table may not exist yet on first run — that's OK
-            pass
+            logger.info("[bq] DELETE skipped (table may not exist): %s", exc)
 
     # Load from GCS
+    logger.info("[bq] LOAD %s → %s", gcs_uri, table_id)
+    t0 = time.monotonic()
     job_config = bigquery.LoadJobConfig(
         source_format=bigquery.SourceFormat.NEWLINE_DELIMITED_JSON,
         autodetect=True,
@@ -41,6 +50,11 @@ def load_json_to_bq(
     )
     load_job = client.load_table_from_uri(gcs_uri, table_id, job_config=job_config)
     load_job.result()
+    elapsed = time.monotonic() - t0
+    logger.info(
+        "[bq] LOAD complete — job %s, %d rows loaded in %.1fs",
+        load_job.job_id, load_job.output_rows or 0, elapsed,
+    )
 
 
 def load_csv_to_bq(

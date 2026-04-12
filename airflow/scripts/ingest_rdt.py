@@ -66,12 +66,19 @@ def download_services(year_month: str) -> list[dict]:
     Returns:
         List of dicts, one per stop (row in CSV).
     """
+    import time
+
     url = RDT_SERVICES_URL.format(year_month=year_month)
-    logger.info("Downloading %s", url)
+    logger.info("[download] GET %s", url)
+    t0 = time.monotonic()
 
     resp = requests.get(url, timeout=120)
     resp.raise_for_status()
+    download_sec = time.monotonic() - t0
+    compressed_mb = len(resp.content) / (1024 * 1024)
+    logger.info("[download] %s complete — %.1f MB compressed in %.1fs", year_month, compressed_mb, download_sec)
 
+    t1 = time.monotonic()
     raw = gzip.decompress(resp.content)
     text = raw.decode("utf-8")
     reader = csv.reader(io.StringIO(text))
@@ -79,8 +86,10 @@ def download_services(year_month: str) -> list[dict]:
 
     ingested_at = datetime.now(timezone.utc).isoformat()
     records = []
+    skipped = 0
     for row in reader:
         if len(row) != len(SERVICES_COLUMNS):
+            skipped += 1
             continue
         record = {
             "service_rdt_id": row[0],
@@ -110,7 +119,11 @@ def download_services(year_month: str) -> list[dict]:
         }
         records.append(record)
 
-    logger.info("Parsed %d stop records for %s", len(records), year_month)
+    parse_sec = time.monotonic() - t1
+    logger.info(
+        "[parse] %s — %d records parsed, %d rows skipped in %.1fs",
+        year_month, len(records), skipped, parse_sec,
+    )
     return records
 
 
@@ -123,20 +136,29 @@ def download_disruptions(year: str) -> list[dict]:
     Returns:
         List of dicts, one per disruption.
     """
+    import time
+
     url = RDT_DISRUPTIONS_URL.format(year=year)
-    logger.info("Downloading %s", url)
+    logger.info("[download] GET %s", url)
+    t0 = time.monotonic()
 
     resp = requests.get(url, timeout=60)
     resp.raise_for_status()
+    download_sec = time.monotonic() - t0
+    size_kb = len(resp.content) / 1024
+    logger.info("[download] %s complete — %.0f KB in %.1fs", year, size_kb, download_sec)
 
+    t1 = time.monotonic()
     text = resp.content.decode("utf-8")
     reader = csv.reader(io.StringIO(text))
     header = next(reader)  # skip header
 
     ingested_at = datetime.now(timezone.utc).isoformat()
     records = []
+    skipped = 0
     for row in reader:
         if len(row) != len(DISRUPTIONS_COLUMNS):
+            skipped += 1
             continue
         record = {
             "rdt_id": row[0],
@@ -160,5 +182,9 @@ def download_disruptions(year: str) -> list[dict]:
         }
         records.append(record)
 
-    logger.info("Parsed %d disruption records for %s", len(records), year)
+    parse_sec = time.monotonic() - t1
+    logger.info(
+        "[parse] %s — %d records parsed, %d rows skipped in %.1fs",
+        year, len(records), skipped, parse_sec,
+    )
     return records
