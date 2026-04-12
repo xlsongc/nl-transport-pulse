@@ -50,6 +50,7 @@ def _upload_ndjson_chunked(records, bucket, gcs_prefix, chunk_size=CHUNK_SIZE):
 
 def _backfill_single_month(month: str) -> None:
     """Backfill services for a single month. Runs as its own task to isolate memory."""
+    import time
     from ingest_rdt import download_services
     from bq_utils import load_json_to_bq
 
@@ -58,7 +59,10 @@ def _backfill_single_month(month: str) -> None:
     dataset = os.environ["BQ_RAW_DATASET"]
     table_id = f"{project}.{dataset}.rdt_services"
 
+    t_start = time.monotonic()
     logger.info("=== Backfilling services for %s ===", month)
+    logger.info("[config] table=%s, bucket=%s", table_id, bucket)
+
     records = download_services(month)
     if not records:
         logger.warning("No records for %s, skipping", month)
@@ -75,21 +79,35 @@ def _backfill_single_month(month: str) -> None:
             partition_field="_year_month",
             skip_delete=(i > 0),
         )
-    logger.info("Loaded %d records for %s to BQ", len(records), month)
+
+    total_sec = time.monotonic() - t_start
+    logger.info(
+        "=== %s complete — %d records, %d chunks, %.0fs total ===",
+        month, len(records), len(uris), total_sec,
+    )
 
 
 def _backfill_disruptions(**context):
+    import re
+    import time
     from ingest_rdt import download_disruptions
     from bq_utils import load_json_to_bq
 
     raw = context["params"].get("disruptions_years", "")
-    years = [y.strip() for y in raw.split(",") if y.strip() and y.strip().isdigit()] if raw else []
+    years = [y.strip() for y in raw.split(",") if re.fullmatch(r"\d{4}", y.strip())] if raw else []
+
+    logger.info("[params] disruptions_years raw=%r → parsed=%s", raw, years)
+    if not years:
+        logger.info("No valid years to backfill, skipping disruptions")
+        return
+
     bucket = os.environ["GCS_BUCKET_NAME"]
     project = os.environ["GCP_PROJECT_ID"]
     dataset = os.environ["BQ_RAW_DATASET"]
     table_id = f"{project}.{dataset}.rdt_disruptions"
 
     for year in years:
+        t_start = time.monotonic()
         logger.info("=== Backfilling disruptions for %s ===", year)
         records = download_disruptions(year)
         if not records:
@@ -106,13 +124,27 @@ def _backfill_disruptions(**context):
                 service_date=year,
                 partition_field="_year",
             )
-        logger.info("Loaded %d records for %s to BQ", len(records), year)
+
+        total_sec = time.monotonic() - t_start
+        logger.info(
+            "=== %s complete — %d records, %.0fs total ===",
+            year, len(records), total_sec,
+        )
 
 
 def _parse_months(**context) -> list[dict]:
     """Parse services_months param into list of dicts for dynamic task mapping."""
+    import re
     raw = context["params"].get("services_months", "")
-    months = [m.strip() for m in raw.split(",") if m.strip() and m.strip()[:4].isdigit()] if raw else []
+    all_tokens = [m.strip() for m in raw.split(",") if m.strip()] if raw else []
+    months = [m for m in all_tokens if re.fullmatch(r"\d{4}-\d{2}", m)]
+    skipped = [m for m in all_tokens if not re.fullmatch(r"\d{4}-\d{2}", m)]
+
+    logger.info("[params] services_months raw=%r", raw)
+    if skipped:
+        logger.warning("[params] Skipped invalid month tokens: %s", skipped)
+    logger.info("[params] Will backfill %d months: %s", len(months), months)
+
     return [{"month": m} for m in months]
 
 

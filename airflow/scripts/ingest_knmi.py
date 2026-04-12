@@ -55,15 +55,22 @@ def extract_weather(start_date: str, end_date: str) -> list[dict]:
         "fmt": "json",
     }
 
-    logger.info("Fetching KNMI weather for %s to %s, stations: %s", start_date, end_date, station_codes)
+    import time
+
+    logger.info("[download] POST %s — stations=%s, range=%s to %s", KNMI_URL, station_codes, start_date, end_date)
+    t0 = time.monotonic()
     resp = requests.post(KNMI_URL, data=params, timeout=120)
     resp.raise_for_status()
+    download_sec = time.monotonic() - t0
+    size_kb = len(resp.content) / 1024
+    logger.info("[download] KNMI response — %.0f KB in %.1fs", size_kb, download_sec)
 
     if not resp.text or resp.text.strip() in ("", "[]"):
         logger.warning("KNMI returned empty response for %s to %s", start_date, end_date)
         return []
 
     raw = resp.json()
+    logger.info("[parse] Parsing %d raw KNMI rows", len(raw))
     ingested_at = datetime.now(timezone.utc).isoformat()
 
     records = []
@@ -92,5 +99,8 @@ def extract_weather(start_date: str, end_date: str) -> list[dict]:
             "_ingested_at": ingested_at,
         })
 
-    logger.info("Parsed %d weather records", len(records))
+    logger.info(
+        "[parse] KNMI complete — %d records for %d stations, range %s to %s",
+        len(records), len(set(r["station_code"] for r in records)), start_date, end_date,
+    )
     return records
