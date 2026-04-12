@@ -15,16 +15,18 @@ st.caption("Cross-corridor reliability and service trends")
 project, core_dataset, staging_dataset = get_project_datasets()
 
 # ── Sidebar filters ──────────────────────────────────────────────────────
+_last_month_end = date.today().replace(day=1) - timedelta(days=1)
+
 with st.sidebar:
     st.header("Filters")
     start_date = st.date_input(
         "Start date",
-        value=date.today() - timedelta(days=90),
+        value=date(2025, 3, 1),
         key="overview_start",
     )
     end_date = st.date_input(
         "End date",
-        value=date.today() - timedelta(days=1),
+        value=_last_month_end,
         key="overview_end",
     )
     aggregation = st.selectbox(

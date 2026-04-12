@@ -35,14 +35,15 @@ with st.sidebar:
         options=list(corridor_options.keys()),
         format_func=lambda x: corridor_options[x],
     )
+    _last_month_end = date.today().replace(day=1) - timedelta(days=1)
     start_date = st.date_input(
         "Start date",
-        value=date.today() - timedelta(days=90),
+        value=date(2025, 3, 1),
         key="explorer_start",
     )
     end_date = st.date_input(
         "End date",
-        value=date.today() - timedelta(days=1),
+        value=_last_month_end,
         key="explorer_end",
     )
     volume_grain = st.selectbox(
