@@ -1,3 +1,6 @@
+-- depends_on: {{ ref('stg_knmi_weather') }}
+-- depends_on: {{ ref('knmi_corridor_mapping') }}
+-- depends_on: {{ ref('fct_road_traffic') }}
 {{
     config(
         materialized='table',

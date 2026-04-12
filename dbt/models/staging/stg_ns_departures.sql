@@ -43,7 +43,10 @@ cleaned as (
             cast(_service_date as string), '_',
             cast(plannedDateTime as string), '_',
             cast(direction as string)
-        ) as departure_id
+        ) as departure_id,
+
+        -- Keep for deduplication ordering
+        _ingested_at
 
     from source
     where cancelled is null or cast(cancelled as boolean) = false
@@ -60,4 +63,4 @@ deduped as (
     from cleaned
 )
 
-select * except(_rn) from deduped where _rn = 1
+select * except(_rn, _ingested_at) from deduped where _rn = 1
