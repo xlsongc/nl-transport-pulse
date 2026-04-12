@@ -118,7 +118,6 @@ with col_w1:
     fig_wind = px.scatter(
         df, x="avg_wind_speed_kmh", y="pct_on_time",
         color="corridor_name", opacity=0.4,
-        trendline="ols",
         labels={
             "avg_wind_speed_kmh": "Avg Wind Speed (km/h)",
             "pct_on_time": "On-Time %", "corridor_name": "Corridor",
@@ -135,7 +134,6 @@ with col_w2:
     fig_gust = px.scatter(
         df, x="max_wind_gust_kmh", y="avg_delay_min",
         color="corridor_name", opacity=0.4,
-        trendline="ols",
         labels={
             "max_wind_gust_kmh": "Max Wind Gust (km/h)",
             "avg_delay_min": "Avg Delay (min)", "corridor_name": "Corridor",

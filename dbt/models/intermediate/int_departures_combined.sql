@@ -45,7 +45,7 @@ rdt_departures as (
         service_date,
         cast(null as string) as direction,
         departure_ts as planned_departure_ts,
-        timestamp_add(departure_ts, interval cast(coalesce(departure_delay_seconds, 0) as int64) second) as actual_departure_ts,
+        timestamp_add(departure_ts, interval cast(coalesce(departure_delay_min, 0) as int64) minute) as actual_departure_ts,
         departure_delay_minutes as delay_minutes,
         coalesce(completely_cancelled, departure_cancelled) as is_cancelled,
         train_number,

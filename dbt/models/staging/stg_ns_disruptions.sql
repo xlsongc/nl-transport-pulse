@@ -65,6 +65,17 @@ cleaned as (
         on s.id = sc.id and s._service_date = sc._service_date
     left join causes_extracted c
         on s.id = c.id and s._service_date = c._service_date
+),
+
+-- Deduplicate: multiple polls per day capture the same disruption.
+-- Keep the latest snapshot (most up-to-date end_ts/is_active) per disruption.
+deduped as (
+    select *,
+        row_number() over (
+            partition by disruption_id, service_date
+            order by registration_ts desc nulls last
+        ) as _rn
+    from cleaned
 )
 
-select * from cleaned
+select * except(_rn) from deduped where _rn = 1

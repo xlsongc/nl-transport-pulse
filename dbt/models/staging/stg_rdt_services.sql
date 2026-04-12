@@ -19,18 +19,18 @@ cleaned as (
         cast(station_code as string) as station_code,
         cast(station_name as string) as station_name,
         cast(arrival_time as timestamp) as arrival_ts,
-        cast(arrival_delay as int64) as arrival_delay_seconds,
+        cast(arrival_delay as int64) as arrival_delay_min,
         cast(arrival_cancelled as boolean) as arrival_cancelled,
         cast(departure_time as timestamp) as departure_ts,
-        cast(departure_delay as int64) as departure_delay_seconds,
+        cast(departure_delay as int64) as departure_delay_min,
         cast(departure_cancelled as boolean) as departure_cancelled,
         cast(platform_change as boolean) as platform_change,
         cast(planned_platform as string) as planned_platform,
         cast(actual_platform as string) as actual_platform,
 
-        -- Computed
-        round(cast(departure_delay as float64) / 60, 1) as departure_delay_minutes,
-        round(cast(arrival_delay as float64) / 60, 1) as arrival_delay_minutes,
+        -- Keep original names for downstream compatibility
+        cast(departure_delay as int64) as departure_delay_minutes,
+        cast(arrival_delay as int64) as arrival_delay_minutes,
 
         -- Metadata
         cast(_source as string) as data_source,

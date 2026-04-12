@@ -38,6 +38,7 @@ def _extract_and_upload_disruptions(**context):
     from gcs_utils import upload_json_to_gcs
 
     service_date = context["ds"]  # execution_date as YYYY-MM-DD
+    poll_hour = context["logical_date"].strftime("%H%M")
     api_key = os.environ["NS_API_KEY"]
     base_url = os.environ["NS_API_BASE_URL"]
     bucket = os.environ["GCS_BUCKET_NAME"]
@@ -47,7 +48,7 @@ def _extract_and_upload_disruptions(**context):
         gcs_uri = upload_json_to_gcs(
             data=records,
             bucket_name=bucket,
-            blob_path=f"raw/ns/disruptions/dt={service_date}/disruptions.json",
+            blob_path=f"raw/ns/disruptions/dt={service_date}/disruptions_{poll_hour}.json",
         )
         context["ti"].xcom_push(key="disruptions_gcs_uri", value=gcs_uri)
     else:
@@ -95,10 +96,13 @@ def _load_disruptions_to_bq(**context):
     dataset = os.environ["BQ_RAW_DATASET"]
     service_date = context["ds"]
 
+    # skip_delete=True: multiple polls per day append to the same partition.
+    # Deduplication happens in dbt staging via disruption id.
     load_json_to_bq(
         gcs_uri=gcs_uri,
         table_id=f"{project}.{dataset}.ns_disruptions",
         service_date=service_date,
+        skip_delete=True,
     )
 
 
