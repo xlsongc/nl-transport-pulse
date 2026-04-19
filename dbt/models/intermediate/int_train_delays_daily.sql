@@ -2,8 +2,20 @@ with departures as (
     select * from {{ ref('int_departures_combined') }}
 ),
 
+ns_disruptions as (
+    select disruption_id, service_date, affected_station_codes
+    from {{ ref('stg_ns_disruptions') }}
+),
+
+rdt_disruptions as (
+    select disruption_id, service_date, affected_station_codes
+    from {{ ref('stg_rdt_disruptions') }}
+),
+
 disruptions as (
-    select * from {{ ref('stg_ns_disruptions') }}
+    select * from ns_disruptions
+    union all
+    select * from rdt_disruptions
 ),
 
 departure_stats as (

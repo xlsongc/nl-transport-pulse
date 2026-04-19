@@ -3750,3 +3750,238 @@ Implementation: Simple table reading from `core.alert_history`, filtered by date
 - Modify: `airflow/scripts/alert_checker.py`
 
 Implementation: Add `check_disruption_alerts()` that queries `dm_disruption_impact` for new high-severity disruptions (duration > 60 min or stations_affected > 5). Send separate Slack message format for disruption alerts.
+
+---
+
+## Phase 2: Remaining Tasks & New Features (Added 2026-04-12)
+
+### Task P2-1: Project Submission Essentials (High Priority)
+
+- [ ] **Step 1: dbt tests** — Add schema tests (not_null, unique, accepted_values) to staging and core models. This is a Zoomcamp grading criterion.
+- [ ] **Step 2: README overhaul** — Architecture diagram, data lineage, how to reproduce, tech decisions. Evaluators read this first.
+- [ ] **Step 3: Git push** — 10+ local commits need to be pushed to GitHub.
+- [ ] **Step 4: dbt full-refresh** — After all historical backfills (2019-2025) complete, rebuild all models with full data.
+
+### Task P2-2: Historical Data Backfill (In Progress)
+
+RDT services data backfill from rijdendetreinen.nl open data:
+- [x] 2025 (2025-01 to 2025-02, filling gap before NS API coverage)
+- [ ] 2024 (2024-01 to 2024-12) — in progress
+- [ ] 2023 (2023-01 to 2023-12)
+- [ ] 2022 (2022-01 to 2022-12)
+- [ ] 2021 (2021-01 to 2021-12)
+- [ ] 2020 (2020-01 to 2020-12)
+- [ ] 2019 (2019-01 to 2019-12)
+
+Expected total: ~1.5 billion rows, ~20 GB in BigQuery. Cost: negligible (€250 free credit, currently €1 used).
+
+### Task P2-3: Streamlit Real-Time Page (Medium Priority)
+
+**Goal:** Add a "5_Today" page focused on current-month daily data, providing near-real-time operational insights.
+
+**Content:**
+- [ ] Today's KPIs vs same weekday average (departures, on-time %, delay)
+- [ ] Rolling 7-day trend with anomaly highlighting
+- [ ] Current month daily heatmap (calendar view)
+- [ ] Active disruptions (from NS API live data)
+- [ ] Comparison: today vs historical average for same corridor/weekday
+
+**Data source:** NS API daily ingest (already running 4x/day) + BigQuery historical baselines.
+
+### Task P2-4: Telegram Commute Bot (Medium Priority)
+
+**Goal:** Personal commute assistant — push daily train info to Telegram based on user's schedule. Transforms our data warehouse into a consumer-facing data product.
+
+**Architecture:**
+```
+Airflow DAG (scheduled per commute)
+  → NS API: real-time departure query
+  → BigQuery: historical delay probability for this route/time/weather
+  → KNMI: today's weather
+  → Format message
+  → Telegram Bot API: push notification
+```
+
+**User's commute schedule:**
+- Morning: Delft → Den Haag → Zwolle, ~06:49 departure → push at 06:00
+- Afternoon: Zwolle → Den Haag → Delft, ~16:00 departure → push at 15:45
+- Days: weekdays only
+
+**Implementation steps:**
+- [ ] **Step 1: Create Telegram bot** — Register bot via @BotFather, save token to `.env`
+- [ ] **Step 2: Commute config** — YAML/JSON config for routes, times, and Telegram chat_id
+  ```yaml
+  commutes:
+    - name: morning_to_zwolle
+      legs:
+        - from: DT    # Delft
+          to: GVC     # Den Haag Centraal
+          depart: "06:49"
+        - from: GVC
+          to: ZL      # Zwolle
+          depart: "07:12"
+      push_time: "06:00"
+      days: [mon, tue, wed, thu, fri]
+
+    - name: afternoon_return
+      legs:
+        - from: ZL
+          to: GVC
+          depart: "16:30"
+        - from: GVC
+          to: DT
+          depart: "17:15"
+      push_time: "15:45"
+      days: [mon, tue, wed, thu, fri]
+  ```
+- [ ] **Step 3: Query module** — `bot/commute_query.py`
+  - NS API: real-time departure info (platform, delay, cancellation)
+  - BigQuery: historical on-time % for this specific train/station/weekday
+  - BigQuery: weather-adjusted delay probability (join KNMI forecast)
+- [ ] **Step 4: Message formatter** — `bot/message_format.py`
+  - Structured Telegram message with train details, historical context, weather advisory
+  - Markdown formatting for Telegram
+- [ ] **Step 5: Telegram sender** — `bot/telegram_utils.py`
+  - Simple `requests.post` to Telegram Bot API `sendMessage` endpoint
+- [ ] **Step 6: Airflow DAG** — `airflow/dags/dag_commute_alert.py`
+  - Two scheduled tasks matching commute times
+  - Reads config, queries data, formats message, sends to Telegram
+- [ ] **Step 7: Testing & tuning** — Test with real commutes, adjust timing and content
+
+**Interview value:** Demonstrates end-to-end data product thinking — from raw ingestion to personal actionable insights. Directly relevant to Booking.com (travel alerts) and Uber (ETA predictions, rider notifications).
+
+### Task P2-5: Infrastructure & Quality (Lower Priority)
+
+- [ ] Terraform for GCS buckets and BQ datasets (Zoomcamp bonus points)
+- [ ] GitHub Actions CI: `dbt test` + SQL lint on PR
+- [ ] `dbt docs generate` → data lineage diagram for README
+- [ ] Makefile for one-click reproducibility (`make setup && make run`)
+- [ ] Partition/cluster audit on all large tables
+
+---
+
+## Phase 3: Evolving the Architecture — Spark + Flink as Natural Extensions
+
+> **Strategic principle:** Don't build a second project to show Spark and Flink. Instead, let the *existing* project organically grow into needing them. This tells a much stronger interview story: "As my requirements evolved, I made different architectural choices for different parts of the system." One project with layered complexity beats two shallow projects.
+
+### Why extend, not rebuild
+
+A separate "Spark + Flink project" (e.g., flight tracking) would look like every other Zoomcamp portfolio on GitHub. What interviewers at Booking.com and Uber actually evaluate:
+
+1. **Can this person work at our scale?** — They need evidence you've thought about what changes when data grows 100x.
+2. **Can this person make architectural decisions under ambiguity?** — Not "do you know Spark", but "do you know *when* Spark is the right call and when it isn't?"
+3. **Can this person deliver business value, not just pipelines?** — The Telegram commute bot already shows this. Spark and Flink should deepen it, not distract from it.
+
+The current project already has the right foundation. What's missing is a reason for the architecture to evolve.
+
+### Spark: large-scale feature engineering on historical data
+
+**The trigger:** With 2019–2026 backfilled, the raw RDT CSVs on GCS total tens of GB. Computing complex features — per-route delay distributions by hour/weekday/season/weather combination — involves cross-joining large tables in ways that are expensive and slow in BigQuery. This is where Spark on Dataproc earns its place.
+
+**What Spark does that BigQuery/dbt can't do efficiently here:**
+- Read raw CSV.gz directly from GCS without loading to BQ first (saves storage cost + load time)
+- Complex windowed feature engineering with Python UDFs (e.g., rolling 30-day delay percentiles per station pair)
+- Output optimized Parquet partitioned by route/month to GCS — serves as a feature store for the Telegram bot and dashboard
+- One-time heavy computation, results consumed downstream by dbt and the bot
+
+**The narrative:** "I used dbt for SQL-expressible transformations inside BigQuery. But when I needed to compute historical delay distributions across millions of route-time-weather combinations as features for my commute prediction bot, the computation was too complex and expensive for pure SQL. I moved that to Spark on Dataproc — process once, store as Parquet, query cheaply forever."
+
+### Flink: real-time public transport stream
+
+**The trigger:** The Telegram commute bot (Phase 2, Task P2-4) currently queries the NS API at push time. But NS API is a snapshot — it tells you what's happening *right now*, not what's *developing*. If a disruption started 10 minutes ago and is cascading, the bot should know before the user asks.
+
+**The data source:** OVapi GTFS-Realtime feed — a true event stream of all Dutch public transport vehicle positions and trip updates. Unlike the NS REST API, GTFS-RT is a continuously updated protobuf feed designed for streaming consumption.
+
+**Concrete data source details (verified 2026-04-12):**
+
+| Feed | URL | Format | Update freq | Auth |
+|------|-----|--------|-------------|------|
+| TripUpdates | `https://gtfs.ovapi.nl/nl/tripUpdates.pb` | Protobuf | ~5-15s | None (free) |
+| VehiclePositions | `https://gtfs.ovapi.nl/nl/vehiclePositions.pb` | Protobuf | ~5-15s | None (free) |
+| ServiceAlerts | `https://gtfs.ovapi.nl/nl/alerts.pb` | Protobuf | varies | None (free) |
+
+Coverage: **all Dutch public transport** — NS, Arriva, Keolis, GVB (Amsterdam metro/tram), RET (Rotterdam metro/tram), HTM (Den Haag tram), Qbuzz, Connexxion, and all regional bus operators.
+
+Python: `pip install gtfs-realtime-bindings` — Google's official protobuf parser, returns structured objects. ~5 lines to consume.
+
+Alternative for lower latency: **NDOV Loket** (`ndovloket.nl`) provides ZeroMQ push — a true push-based stream, no polling needed. Free registration required.
+
+**What Flink does here:**
+- Kafka producer polls GTFS-RT protobuf every 10s (or NDOV ZeroMQ for true push) → `topic: ovapi.trip-updates`
+- Flink job 1 — Windowed aggregation: rolling delay per route over the last 15 minutes
+- Flink job 2 — Pattern detection: identify cascading delays (if 3+ consecutive stations on a route show increasing delay, flag it)
+- Flink job 3 — Stateful alerting: push to Telegram only when state *changes* (train goes from on-time to delayed), not on every poll
+- Sink to BigQuery streaming buffer for the real-time Streamlit page
+
+**The narrative:** "The batch pipeline gives me historical analysis. But my commute bot needed to detect developing disruptions — not just check a snapshot. I added Kafka + Flink to consume the Dutch GTFS-RT stream, detect delay patterns in real-time, and push proactive alerts. The bot now tells me 'your 06:49 is likely delayed — the previous two trains on this line were 5+ minutes late' before NS even updates their app."
+
+### How it all fits together
+
+```
+                    ┌─────────────────────────────────┐
+                    │         ONE PROJECT              │
+                    │    NL Transport Pulse            │
+                    │                                  │
+  Historical        │  ┌───────────┐                   │
+  RDT CSVs ─────────┼─→│  Spark    │─→ Feature Store   │
+  (GCS, tens of GB) │  │ (Dataproc)│   (Parquet/GCS)   │
+                    │  └───────────┘        │          │
+                    │                       ▼          │
+  NS REST API ──────┼─→ Airflow ──→ BQ ──→ dbt ──→ Dashboard
+  KNMI weather      │      │                │          │
+                    │      │                ▼          │
+  OVapi GTFS-RT ────┼─→ Kafka ──→ Flink ──→ BQ        │
+  (event stream)    │              │                    │
+                    │              ▼                    │
+                    │         Telegram Bot              │
+                    │   (batch context + live alerts)   │
+                    └─────────────────────────────────┘
+```
+
+Each technology earns its place:
+- **Airflow + dbt + BigQuery:** Daily batch pipeline. Right for structured SQL transforms on manageable data.
+- **Spark:** One-time heavy feature engineering on years of raw data. Right because the computation is too complex/expensive for SQL.
+- **Flink:** Real-time delay pattern detection from GTFS-RT stream. Right because it's a true event stream requiring stateful processing.
+- **Telegram bot:** The consumer-facing data product that ties everything together.
+
+### Interview story arc
+
+> "I started with a batch architecture because that's what the data required — REST APIs, daily granularity, moderate volume. As I added historical backfill (7 years, 150M+ rows) and a personal commute bot, new requirements emerged that the batch pipeline couldn't serve well. I added Spark for large-scale feature engineering and Flink for real-time delay detection — not because I wanted to use them, but because the problem demanded them. The result is a single system where batch, streaming, and real-time serve different purposes in the same pipeline."
+
+This demonstrates exactly what Booking.com and Uber want to hear: **architecture evolves with requirements, and every component has a reason to exist.**
+
+---
+
+## Future Directions (not planned yet, recorded for reference)
+
+### Rotterdam Port & Maritime Shipping Analytics
+
+**Why it's interesting:** Rotterdam is Europe's largest port. The US-Iran tensions and Red Sea crisis (Houthi attacks on shipping, 2024-ongoing) forced massive rerouting via the Cape of Good Hope, adding 10-14 days to Asia-Europe voyages. This directly impacts Rotterdam's throughput, container availability, and European supply chains. Analyzing this with data is timely and has real geopolitical relevance.
+
+**Data availability (investigated 2026-04-12):**
+
+| Source | What | Free? | Real-time? |
+|--------|------|-------|-----------|
+| EMODnet | Historical vessel density maps, EU waters | Yes | No (aggregated) |
+| Danish Maritime Authority | Historical AIS for Danish waters (transit route) | Yes | No |
+| Port of Rotterdam reports | Throughput statistics (TEU, tonnage) | Yes (public reports) | No |
+| MarineTraffic API | Individual ship tracking | Paid (~€100+/mo) | Yes |
+| AISHub | Community AIS sharing | Free if you contribute a receiver | Near-real-time |
+| Rijkswaterstaat | Dutch national maritime data | Partially (investigate further) | Varies |
+
+**Practical approach if pursued:**
+- Use EMODnet free historical density data for before/after analysis (Red Sea rerouting impact on Rotterdam approach patterns)
+- Port of Rotterdam published throughput statistics for macro trends
+- If budget allows, MarineTraffic API for real-time vessel tracking
+- Join with existing KNMI weather data (wind/waves affecting port operations)
+- Spark justified for processing EMODnet's large spatial datasets; Flink justified if a real-time AIS feed is available
+
+**Interview angle:** Supply chain resilience is top of mind for every logistics company. Demonstrating you can quantify the impact of geopolitical events on European shipping infrastructure is a powerful differentiator — especially in the Netherlands where "water management" and "trade logistics" are national competencies.
+
+### European Energy Market Analytics
+
+**Why interesting:** Dutch energy market (EPEX SPOT NL bidding zone) with renewable generation from offshore wind (North Sea) directly correlates with KNMI weather data already in the pipeline. Price volatility, grid balancing, and the energy transition are politically and economically significant in NL.
+
+**Key data source:** ENTSO-E Transparency Platform — free API, `entsoe-py` Python library, 10+ years of hourly data (prices, generation by type, load, cross-border flows). TenneT (Dutch TSO) publishes near-real-time imbalance prices.
+
+**Parking this for now** — no true streaming source exists in energy open data (all REST-poll). Better suited as a standalone batch analytics project or as a Spark-only extension, not a Flink showcase.

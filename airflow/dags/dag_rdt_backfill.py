@@ -34,18 +34,27 @@ def _upload_ndjson_chunked(records, bucket, gcs_prefix, chunk_size=CHUNK_SIZE):
     """Upload records as NDJSON to GCS, chunked if large."""
     from gcs_utils import upload_json_to_gcs
 
-    if len(records) <= chunk_size:
-        uri = upload_json_to_gcs(records, bucket, f"{gcs_prefix}/data.json")
-        return [uri]
-
     uris = []
-    for i in range(0, len(records), chunk_size):
-        chunk = records[i : i + chunk_size]
-        part = i // chunk_size
+    chunk = []
+    part = 0
+    count = 0
+
+    for record in records:
+        chunk.append(record)
+        count += 1
+        if len(chunk) >= chunk_size:
+            uri = upload_json_to_gcs(chunk, bucket, f"{gcs_prefix}/part_{part:03d}.json")
+            uris.append(uri)
+            logger.info("Uploaded chunk %d (%d records) to %s", part, len(chunk), uri)
+            chunk = []
+            part += 1
+
+    if chunk:
         uri = upload_json_to_gcs(chunk, bucket, f"{gcs_prefix}/part_{part:03d}.json")
         uris.append(uri)
         logger.info("Uploaded chunk %d (%d records) to %s", part, len(chunk), uri)
-    return uris
+
+    return uris, count
 
 
 def _backfill_single_month(month: str) -> None:
@@ -64,12 +73,12 @@ def _backfill_single_month(month: str) -> None:
     logger.info("[config] table=%s, bucket=%s", table_id, bucket)
 
     records = download_services(month)
-    if not records:
+    gcs_prefix = f"rdt/services/{month}"
+    uris, num_records = _upload_ndjson_chunked(records, bucket, gcs_prefix)
+
+    if not uris:
         logger.warning("No records for %s, skipping", month)
         return
-
-    gcs_prefix = f"rdt/services/{month}"
-    uris = _upload_ndjson_chunked(records, bucket, gcs_prefix)
 
     for i, uri in enumerate(uris):
         load_json_to_bq(
@@ -78,12 +87,13 @@ def _backfill_single_month(month: str) -> None:
             service_date=month,
             partition_field="_year_month",
             skip_delete=(i > 0),
+            use_existing_schema=True,
         )
 
     total_sec = time.monotonic() - t_start
     logger.info(
         "=== %s complete — %d records, %d chunks, %.0fs total ===",
-        month, len(records), len(uris), total_sec,
+        month, num_records, len(uris), total_sec,
     )
 
 
@@ -115,7 +125,7 @@ def _backfill_disruptions(**context):
             continue
 
         gcs_prefix = f"rdt/disruptions/{year}"
-        uris = _upload_ndjson_chunked(records, bucket, gcs_prefix)
+        uris, num_records = _upload_ndjson_chunked(records, bucket, gcs_prefix)
 
         for uri in uris:
             load_json_to_bq(
@@ -123,12 +133,13 @@ def _backfill_disruptions(**context):
                 table_id=table_id,
                 service_date=year,
                 partition_field="_year",
+                use_existing_schema=True,
             )
 
         total_sec = time.monotonic() - t_start
         logger.info(
             "=== %s complete — %d records, %.0fs total ===",
-            year, len(records), total_sec,
+            year, num_records, total_sec,
         )
 
 
@@ -137,8 +148,8 @@ def _parse_months(**context) -> list[dict]:
     import re
     raw = context["params"].get("services_months", "")
     all_tokens = [m.strip() for m in raw.split(",") if m.strip()] if raw else []
-    months = [m for m in all_tokens if re.fullmatch(r"\d{4}-\d{2}", m)]
-    skipped = [m for m in all_tokens if not re.fullmatch(r"\d{4}-\d{2}", m)]
+    months = [m for m in all_tokens if re.fullmatch(r"\d{4}(-\d{2})?", m)]
+    skipped = [m for m in all_tokens if not re.fullmatch(r"\d{4}(-\d{2})?", m)]
 
     logger.info("[params] services_months raw=%r", raw)
     if skipped:
@@ -166,7 +177,7 @@ with DAG(
         "services_months": Param(
             default="none",
             type="string",
-            description="Comma-separated months, e.g. 2025-04,2025-05,2025-06. Use 'none' to skip.",
+            description="Comma-separated months or years, e.g. 2022,2025-04,2025-05. Use 'none' to skip.",
         ),
         "disruptions_years": Param(
             default="none",

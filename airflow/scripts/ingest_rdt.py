@@ -57,74 +57,78 @@ def _parse_int(val: str) -> int | None:
     return int(val)
 
 
-def download_services(year_month: str) -> list[dict]:
-    """Download and parse a monthly services CSV.gz.
+def download_services(year_month: str):
+    """Download and parse a monthly/yearly services CSV.gz.
 
     Args:
-        year_month: Format 'YYYY-MM', e.g. '2026-03'
+        year_month: Format 'YYYY' or 'YYYY-MM', e.g. '2022' or '2026-03'
 
-    Returns:
-        List of dicts, one per stop (row in CSV).
+    Yields:
+        Dicts, one per stop (row in CSV), to limit memory usage on large files.
     """
     import time
 
     url = RDT_SERVICES_URL.format(year_month=year_month)
-    logger.info("[download] GET %s", url)
+    logger.info("[download] GET %s (streaming)", url)
     t0 = time.monotonic()
 
-    resp = requests.get(url, timeout=120)
-    resp.raise_for_status()
-    download_sec = time.monotonic() - t0
-    compressed_mb = len(resp.content) / (1024 * 1024)
-    logger.info("[download] %s complete — %.1f MB compressed in %.1fs", year_month, compressed_mb, download_sec)
+    with requests.get(url, stream=True, timeout=120) as resp:
+        resp.raise_for_status()
+        logger.info("[download] stream opened in %.1fs", time.monotonic() - t0)
 
-    t1 = time.monotonic()
-    raw = gzip.decompress(resp.content)
-    text = raw.decode("utf-8")
-    reader = csv.reader(io.StringIO(text))
-    header = next(reader)  # skip header
+        t1 = time.monotonic()
+        ingested_at = datetime.now(timezone.utc).isoformat()
+        skipped = 0
+        yielded_count = 0
 
-    ingested_at = datetime.now(timezone.utc).isoformat()
-    records = []
-    skipped = 0
-    for row in reader:
-        if len(row) != len(SERVICES_COLUMNS):
-            skipped += 1
-            continue
-        record = {
-            "service_rdt_id": row[0],
-            "service_date": row[1],
-            "service_type": row[2],
-            "company": row[3],
-            "train_number": row[4],
-            "completely_cancelled": _parse_bool(row[5]),
-            "partly_cancelled": _parse_bool(row[6]),
-            "max_delay": _parse_int(row[7]),
-            "stop_rdt_id": row[8],
-            "station_code": row[9],
-            "station_name": row[10],
-            "arrival_time": row[11] or None,
-            "arrival_delay": _parse_int(row[12]),
-            "arrival_cancelled": _parse_bool(row[13]),
-            "departure_time": row[14] or None,
-            "departure_delay": _parse_int(row[15]),
-            "departure_cancelled": _parse_bool(row[16]),
-            "platform_change": _parse_bool(row[17]),
-            "planned_platform": row[18] or None,
-            "actual_platform": row[19] or None,
-            # Metadata
-            "_source": "rdt_archive",
-            "_ingested_at": ingested_at,
-            "_year_month": year_month,
-        }
-        records.append(record)
+        # Pass raw stream to gzip to decompress on the fly
+        with gzip.GzipFile(fileobj=resp.raw) as raw_gz, \
+             io.TextIOWrapper(raw_gz, encoding="utf-8") as text_io:
 
-    parse_sec = time.monotonic() - t1
-    logger.info(
-        "[parse] %s — %d records parsed, %d rows skipped in %.1fs",
-        year_month, len(records), skipped, parse_sec,
-    )
-    return records
+            reader = csv.reader(text_io)
+            try:
+                header = next(reader)  # skip header
+            except StopIteration:
+                return
+
+            for row in reader:
+                if len(row) != len(SERVICES_COLUMNS):
+                    skipped += 1
+                    continue
+                record = {
+                    "service_rdt_id": row[0],
+                    "service_date": row[1],
+                    "service_type": row[2],
+                    "company": row[3],
+                    "train_number": row[4],
+                    "completely_cancelled": _parse_bool(row[5]),
+                    "partly_cancelled": _parse_bool(row[6]),
+                    "max_delay": _parse_int(row[7]),
+                    "stop_rdt_id": row[8],
+                    "station_code": row[9],
+                    "station_name": row[10],
+                    "arrival_time": row[11] or None,
+                    "arrival_delay": _parse_int(row[12]),
+                    "arrival_cancelled": _parse_bool(row[13]),
+                    "departure_time": row[14] or None,
+                    "departure_delay": _parse_int(row[15]),
+                    "departure_cancelled": _parse_bool(row[16]),
+                    "platform_change": _parse_bool(row[17]),
+                    "planned_platform": row[18] or None,
+                    "actual_platform": row[19] or None,
+                    # Metadata
+                    "_source": "rdt_archive",
+                    "_ingested_at": ingested_at,
+                    "_year_month": year_month,
+                }
+                yield record
+                yielded_count += 1
+
+        parse_sec = time.monotonic() - t1
+        logger.info(
+            "[parse] %s — %d records parsed, %d rows skipped in %.1fs",
+            year_month, yielded_count, skipped, parse_sec,
+        )
 
 
 def download_disruptions(year: str) -> list[dict]:
