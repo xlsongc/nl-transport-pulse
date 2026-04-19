@@ -28,7 +28,7 @@ Two paths — live and historical:
 - **Live path**: `dag_ns_ingest` runs daily at 06:00 UTC, fetches yesterday's data from the NS API. `catchup=False` because the NS departures endpoint only returns current data, not historical.
 - **Historical path**: `dag_rdt_backfill` is a manual-trigger DAG that downloads archived data from rijdendetreinen.nl. Operators pass months/years as config params via the Airflow UI.
 
-The backfill DAG handles large volumes by chunking uploads (200K records per chunk) to avoid OOM, and uses `skip_delete` on subsequent chunks so only the first chunk triggers the partition delete.
+The backfill DAG handles massive datasets (like full-year 5-7GB archives) by processing downloads as a stream. It decompresses the CSV on-the-fly and yields rows to Airflow, which chunks the uploads (200K records per chunk) to GCS. This avoids holding millions of rows in memory and prevents Docker OOM kills (exit code -9). It uses `skip_delete` on subsequent chunks so only the first chunk triggers the BigQuery partition delete.
 
 ### Q: Why is the backfill manual instead of automated?
 

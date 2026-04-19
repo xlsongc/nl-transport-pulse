@@ -4,6 +4,7 @@ import logging
 import time
 
 from google.cloud import storage
+from requests.exceptions import ConnectionError, SSLError
 
 logger = logging.getLogger(__name__)
 
@@ -22,7 +23,16 @@ def upload_json_to_gcs(
     blob = bucket.blob(blob_path)
     ndjson = "\n".join(json.dumps(row) for row in data)
     size_mb = len(ndjson.encode()) / (1024 * 1024)
-    blob.upload_from_string(ndjson, content_type="application/json")
+    for attempt in range(1, 4):
+        try:
+            blob.upload_from_string(ndjson, content_type="application/json")
+            break
+        except (SSLError, ConnectionError) as exc:
+            if attempt == 3:
+                raise
+            logger.warning("[gcs] Upload attempt %d failed (%s), retrying in %ds…", attempt, exc.__class__.__name__, attempt * 5)
+            time.sleep(attempt * 5)
+            blob = client.bucket(bucket_name).blob(blob_path)
     elapsed = time.monotonic() - t0
     uri = f"gs://{bucket_name}/{blob_path}"
     logger.info("[gcs] Upload complete — %.1f MB in %.1fs → %s", size_mb, elapsed, uri)

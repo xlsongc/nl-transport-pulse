@@ -158,6 +158,16 @@ concat(station_code, '_', service_date, '_', planned_departure_ts, '_', directio
 - Set `max_active_runs=1`
 - Added `time.sleep(1)` between station API calls
 
+### 9. DAG backfill OOM on full-year archives
+
+**Symptom:** `local_task_job_runner.py:234 INFO - Task exited with return code -9` (Docker container killed by OOM).
+
+**Root cause:** Historical `services-YYYY.csv.gz` full-year archives (like 2022) compress to ~370MB but decompress to 5-7GB of CSV data. The ingestion script parsed all rows into a single in-memory Python list before starting the GCS upload, which required ~15GB of RAM.
+
+**Fix:** Switched to a streaming architecture:
+- `ingest_rdt.py` decompresses the data on-the-fly and `yields` rows via a generator.
+- `dag_rdt_backfill.py` and `dag_rdt_monthly.py` consume the stream, batching records into chunks of 200,000 and immediately uploading each chunk to GCS to free memory.
+
 ---
 
 ## Verified Data State

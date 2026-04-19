@@ -19,13 +19,15 @@ def test_download_services_parses_csv():
     """Should parse services CSV.gz into structured records."""
     compressed = gzip.compress(SAMPLE_SERVICES_CSV.encode("utf-8"))
     mock_resp = MagicMock()
-    mock_resp.status_code = 200
-    mock_resp.content = compressed
+    mock_resp.__enter__.return_value = mock_resp
+    mock_resp.__exit__.return_value = False
+    mock_resp.raw = io.BytesIO(compressed)
+    mock_resp.raise_for_status.return_value = None
 
     with patch("scripts.ingest_rdt.requests.get", return_value=mock_resp):
         from scripts.ingest_rdt import download_services
 
-        records = download_services("2026-03")
+        records = list(download_services("2026-03"))
 
     assert len(records) == 2
     r0 = records[0]

@@ -78,7 +78,86 @@ with col6:
 st.markdown("---")
 
 # ══════════════════════════════════════════════════════════════════════════
-# Section 2: Monthly Departures by Operator
+# Section 2: Operator Profiles (multiselect, filters Monthly chart below)
+# ══════════════════════════════════════════════════════════════════════════
+st.subheader("Operator Profiles")
+
+sql_profiles = f"""
+select
+    o.operator_name,
+    o.full_name,
+    o.country,
+    o.operator_type,
+    o.description,
+    d.departures,
+    d.avg_delay_min,
+    d.pct_on_time
+from `{project}.raw_nl_transport.dim_operators` o
+left join (
+    select
+        operator_name,
+        count(*) as departures,
+        round(avg(delay_minutes), 2) as avg_delay_min,
+        round(countif(delay_minutes <= 0) * 100.0 / count(*), 1) as pct_on_time
+    from `{project}.{staging_dataset}.int_departures_combined`
+    where service_date between '{start_date}' and '{end_date}'
+    group by 1
+) d on o.operator_name = d.operator_name
+where d.departures is not null
+order by d.departures desc
+"""
+df_profiles = query_df(sql_profiles)
+
+# Track selected operator codes for filtering the monthly chart
+selected_op_codes: list[str] = []
+
+if not df_profiles.empty:
+    type_emoji = {
+        "national": "🟦", "regional": "🟩",
+        "international": "🟧", "cross-border": "🟪", "charter": "🟫",
+    }
+
+    # Build multiselect options — default to all
+    op_options = [
+        f"{row['full_name']} ({row['operator_name']})"
+        for _, row in df_profiles.iterrows()
+    ]
+    selected_ops = st.multiselect(
+        "Select operators (all shown by default)",
+        options=op_options,
+        default=op_options,
+        key="op_profile_select",
+    )
+
+    # Map display names back to df rows
+    op_display_to_idx = {
+        f"{row['full_name']} ({row['operator_name']})": idx
+        for idx, row in df_profiles.iterrows()
+    }
+    selected_rows = [df_profiles.iloc[op_display_to_idx[s]] for s in selected_ops if s in op_display_to_idx]
+    selected_op_codes = [r["operator_name"] for r in selected_rows]
+
+    for row in selected_rows:
+        dep_str = _human_number(int(row["departures"])) if pd.notna(row["departures"]) else "—"
+        emoji = type_emoji.get(row["operator_type"], "⬜")
+
+        col_p1, col_p2, col_p3, col_p4 = st.columns(4)
+        with col_p1:
+            st.metric("Type", f"{emoji} {row['operator_type'].capitalize()}")
+        with col_p2:
+            st.metric("Departures", dep_str)
+        with col_p3:
+            st.metric("On-Time %", f"{row['pct_on_time']:.1f}%" if pd.notna(row["pct_on_time"]) else "—")
+        with col_p4:
+            st.metric("Avg Delay", f"{row['avg_delay_min']:.2f} min" if pd.notna(row["avg_delay_min"]) else "—")
+
+        st.markdown(f"**{row['full_name']}** &nbsp; | &nbsp; Country: {row['country']} &nbsp; | &nbsp; Code: `{row['operator_name']}`")
+        st.info(row["description"])
+
+st.markdown("---")
+
+# ══════════════════════════════════════════════════════════════════════════
+# Section 2.5: Monthly Departures by Operator (filtered by profile selection)
 # ══════════════════════════════════════════════════════════════════════════
 st.subheader("Monthly Departures by Operator")
 
@@ -96,6 +175,10 @@ order by 1, 3 desc
 df_monthly_ops = query_df(sql_monthly_ops)
 
 if not df_monthly_ops.empty:
+    # Filter by selected operators from Profiles section
+    if selected_op_codes:
+        df_monthly_ops = df_monthly_ops[df_monthly_ops["operator_name"].isin(selected_op_codes)]
+
     top_ops = (
         df_monthly_ops.groupby("operator_name")["departures"]
         .sum()
@@ -122,62 +205,6 @@ if not df_monthly_ops.empty:
         margin=dict(t=10),
     )
     st.plotly_chart(fig_monthly, use_container_width=True)
-
-st.markdown("---")
-
-# ══════════════════════════════════════════════════════════════════════════
-# Section 2.5: Operator Profiles
-# ══════════════════════════════════════════════════════════════════════════
-st.subheader("Operator Profiles")
-
-sql_profiles = f"""
-select
-    o.operator_name,
-    o.full_name,
-    o.country,
-    o.operator_type,
-    o.description,
-    d.departures,
-    d.avg_delay_min,
-    d.pct_on_time
-from `{project}.{core_dataset}.dim_operators` o
-left join (
-    select
-        operator_name,
-        count(*) as departures,
-        round(avg(delay_minutes), 2) as avg_delay_min,
-        round(countif(delay_minutes <= 0) * 100.0 / count(*), 1) as pct_on_time
-    from `{project}.{staging_dataset}.int_departures_combined`
-    where service_date between '{start_date}' and '{end_date}'
-    group by 1
-) d on o.operator_name = d.operator_name
-where d.departures is not null
-order by d.departures desc
-"""
-df_profiles = query_df(sql_profiles)
-
-if not df_profiles.empty:
-    type_colors = {
-        "national": "#1f77b4",
-        "regional": "#2ca02c",
-        "international": "#ff7f0e",
-        "cross-border": "#9467bd",
-        "charter": "#8c564b",
-    }
-
-    for _, row in df_profiles.iterrows():
-        color = type_colors.get(row["operator_type"], "#666")
-        dep_str = _human_number(int(row["departures"])) if pd.notna(row["departures"]) else "—"
-        delay_str = f"{row['avg_delay_min']:.2f}" if pd.notna(row["avg_delay_min"]) else "—"
-        ontime_str = f"{row['pct_on_time']:.1f}%" if pd.notna(row["pct_on_time"]) else "—"
-
-        st.markdown(
-            f"**{row['full_name']}** (`{row['operator_name']}`) "
-            f"&nbsp; :{color}[{row['operator_type'].upper()}] "
-            f"&nbsp; {row['country']} "
-            f"&nbsp;|&nbsp; {dep_str} deps &nbsp;|&nbsp; On-time: {ontime_str} &nbsp;|&nbsp; Delay: {delay_str} min  \n"
-            f"_{row['description']}_"
-        )
 
 st.markdown("---")
 
@@ -250,6 +277,7 @@ st.markdown("---")
 # Section 4: Busiest Stations
 # ══════════════════════════════════════════════════════════════════════════
 st.subheader("Busiest Stations (Top 25)")
+st.caption(f"From {start_date} to {end_date}")
 
 sql_stations = f"""
 with station_names as (
@@ -441,12 +469,22 @@ order by 1, 3 desc
 df_causes = query_df(sql_causes)
 
 if not df_causes.empty:
+    # Shared color map so both charts match
+    cause_order = (
+        df_causes.groupby("cause_group")["disruptions"].sum()
+        .sort_values(ascending=False).index.tolist()
+    )
+    palette = px.colors.qualitative.Plotly
+    cause_colors = {c: palette[i % len(palette)] for i, c in enumerate(cause_order)}
+
     col_c1, col_c2 = st.columns([1.5, 1])
 
     with col_c1:
         fig_causes_trend = px.area(
             df_causes,
             x="year", y="disruptions", color="cause_group",
+            color_discrete_map=cause_colors,
+            category_orders={"cause_group": cause_order},
             labels={"year": "", "disruptions": "Disruptions", "cause_group": "Cause"},
         )
         fig_causes_trend.update_layout(
@@ -460,6 +498,9 @@ if not df_causes.empty:
         cause_totals = df_causes.groupby("cause_group")["disruptions"].sum().reset_index()
         fig_pie = px.pie(
             cause_totals, values="disruptions", names="cause_group", hole=0.4,
+            color="cause_group",
+            color_discrete_map=cause_colors,
+            category_orders={"cause_group": cause_order},
         )
         fig_pie.update_layout(height=400, margin=dict(t=10, b=10))
         st.plotly_chart(fig_pie, use_container_width=True)
@@ -506,12 +547,9 @@ if not df_delay_attr.empty:
         fig_delay_bar = px.bar(
             df_delay_attr.head(10),
             x="operator_name", y="avg_delay_when_late",
-            color="departures",
-            color_continuous_scale="Blues",
             labels={
                 "operator_name": "",
                 "avg_delay_when_late": "Avg Delay When Late (min)",
-                "departures": "Departures",
             },
         )
         fig_delay_bar.update_layout(height=380, margin=dict(t=10))

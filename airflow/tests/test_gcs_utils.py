@@ -25,9 +25,10 @@ def test_upload_json_to_gcs():
             "raw/ns/disruptions/dt=2026-03-26/disruptions.json"
         )
         mock_blob.upload_from_string.assert_called_once()
-        uploaded_data = json.loads(
-            mock_blob.upload_from_string.call_args[0][0]
-        )
+        uploaded_data = [
+            json.loads(line)
+            for line in mock_blob.upload_from_string.call_args[0][0].splitlines()
+        ]
         assert uploaded_data == data
         assert result == "gs://test-bucket/raw/ns/disruptions/dt=2026-03-26/disruptions.json"
 
