@@ -97,6 +97,20 @@ Four Streamlit pages served at `localhost:8501`:
 
 **4. System & Operators** — Operator profiles (26 Dutch/international rail companies), monthly departure volume by operator, reliability ranking, busiest stations, 15-year disruption trends (2011–2025) with COVID annotation, disruption cause breakdown, delay attribution.
 
+### Screenshots
+
+**Network Overview**
+
+![Network Overview](docs/screenshots/network-overview-representative.png)
+
+**Weather Impact**
+
+![Weather Impact](docs/screenshots/weather-impact-representative.png)
+
+**Historical Disruptions**
+
+![Historical Disruptions](docs/screenshots/disruption-trends-representative.png)
+
 ## Tech Stack
 
 | Layer | Tool | Why |
