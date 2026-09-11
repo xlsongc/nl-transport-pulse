@@ -14,32 +14,32 @@ This project builds a pipeline that ingests train performance data (70M+ departu
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│  DATA SOURCES                                                    │
+│  DATA SOURCES                                                   │
 │  NS API (live departures + disruptions, 4x daily)               │
 │  RDT open data (historical services 2019–2026 + disruptions     │
-│                  2011–2025, monthly batch)                       │
+│                  2011–2025, monthly batch)                      │
 │  KNMI (Dutch weather observations, daily)                       │
 ├─────────────────────────────────────────────────────────────────┤
-│  ORCHESTRATION — Apache Airflow                                  │
-│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────────┐    │
-│  │NS ingest │  │KNMI      │  │RDT       │  │RDT backfill  │    │
-│  │4x daily  │  │daily     │  │monthly   │  │(manual,      │    │
-│  │          │  │          │  │auto      │  │ one-time)    │    │
-│  └────┬─────┘  └────┬─────┘  └────┬─────┘  └──────┬───────┘    │
+│  ORCHESTRATION — Apache Airflow                                 │
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────────┐     │
+│  │NS ingest │  │KNMI      │  │RDT       │  │RDT backfill  │     │
+│  │4x daily  │  │daily     │  │monthly   │  │(manual,      │     │
+│  │          │  │          │  │auto      │  │ one-time)    │     │
+│  └────┬─────┘  └─────┬────┘  └─────┬────┘  └───────┬──────┘     │
 │       └──────────────┴─────────────┴───────────────┘            │
-│                              │                                   │
+│                              │                                  │
 │                         GCS (raw JSON/CSV archive)              │
-│                              │                                   │
-│                         BigQuery (raw)                           │
-│                              │                                   │
-│  TRANSFORMATION — dbt Core                                       │
+│                              │                                  │
+│                         BigQuery (raw)                          │
+│                              │                                  │
+│  TRANSFORMATION — dbt Core                                      │
 │  ┌──────────────────────────────────────────────────┐           │
 │  │  raw → staging (clean, type, dedup)              │           │
 │  │  staging → intermediate (combine, enrich)        │           │
 │  │  intermediate → core (star schema, aggregates)   │           │
 │  └──────────────────────────────────────────────────┘           │
-│                              │                                   │
-│  SERVING — Streamlit + Plotly                                    │
+│                              │                                  │
+│  SERVING — Streamlit + Plotly                                   │
 │  ┌──────────────────────────────────────────────────┐           │
 │  │  Network Overview │ Corridor Explorer            │           │
 │  │  Weather Impact   │ System & Operators           │           │
